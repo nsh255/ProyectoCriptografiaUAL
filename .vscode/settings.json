@@ -1,6 +1,8 @@
 {
     "files.associations": {
         "dirent.h": "c",
-        "rand.h": "c"
+        "rand.h": "c",
+        "err.h": "c",
+        "*.inc": "c"
     }
 }
