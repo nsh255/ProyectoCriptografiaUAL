@@ -1,14 +1,15 @@
 #include <stdio.h>
 #include <string.h>
-#include <dirent.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <openssl/err.h>
 #include <openssl/aes.h>
+#include <dirent.h>
 #include <sys/stat.h>
 
 #define INPUT_FOLDER "C:\\Users\\usuario\\Desktop\\Pruebas para criptografía"
 #define OUTPUT_FOLDER "C:\\Users\\usuario\\Desktop\\Archivos encriptados"
+#define DECRYPTED_FOLDER "C:\\Users\\usuario\\Desktop\\Archivos desencriptados"
 #define KEYFILE "C:\\Users\\usuario\\Desktop\\Clave.txt"
 
 void handleErrors(void) {
@@ -16,19 +17,10 @@ void handleErrors(void) {
     exit(1);
 }
 
-int isRegularFile(const char *path) {
-    struct stat path_stat;
-    if (stat(path, &path_stat) != 0) {
-        return 0;
-    }
-    return S_ISREG(path_stat.st_mode);
-}
-
-void ensureOutputFolderExists() {
+void ensureOutputFolderExists(const char *folderPath) {
     struct stat st = {0};
-    if (stat(OUTPUT_FOLDER, &st) == -1) {
-        mkdir(OUTPUT_FOLDER);
-        chmod(OUTPUT_FOLDER, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH); // Establecer permisos
+    if (stat(folderPath, &st) == -1) {
+        mkdir(folderPath);
     }
 }
 
@@ -37,9 +29,7 @@ void encryptFiles(const unsigned char *key) {
     ERR_load_crypto_strings();
 
     // Crear la carpeta de salida en el escritorio
-    char outputFolderPath[256];
-    snprintf(outputFolderPath, sizeof(outputFolderPath), "%s/%s", getenv("USERPROFILE"), OUTPUT_FOLDER);
-    mkdir(outputFolderPath);
+    ensureOutputFolderExists(OUTPUT_FOLDER);
 
     // Abrir la carpeta de origen
     DIR *dir = opendir(INPUT_FOLDER);
@@ -52,13 +42,18 @@ void encryptFiles(const unsigned char *key) {
     while ((entry = readdir(dir)) != NULL) {
         char inputFilePath[512];
         char outputFilePath[512];
-        snprintf(inputFilePath, sizeof(inputFilePath), "%s/%s", INPUT_FOLDER, entry->d_name);
-        snprintf(outputFilePath, sizeof(outputFilePath), "%s/%s.enc", outputFolderPath, entry->d_name);
+        snprintf(inputFilePath, sizeof(inputFilePath), "%s\\%s", INPUT_FOLDER, entry->d_name);
+        snprintf(outputFilePath, sizeof(outputFilePath), "%s\\%s.enc", OUTPUT_FOLDER, entry->d_name);
 
-        if (isRegularFile(inputFilePath)) {
+        struct stat path_stat;
+        if (stat(inputFilePath, &path_stat) != 0) {
+            continue;  // Ignorar elementos no válidos
+        }
+
+        if (S_ISREG(path_stat.st_mode)) {
             // Inicializar el contexto de cifrado
             EVP_CIPHER_CTX *ctx;
-            EVP_CIPHER_CTX_init(ctx);
+            EVP_CIPHER_CTX_new();
 
             // Configurar el cifrado AES-128 en modo CBC
             if (1 != EVP_EncryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key, NULL)) {
@@ -100,26 +95,29 @@ void encryptFiles(const unsigned char *key) {
             // Liberar recursos
             fclose(inputFile);
             fclose(outputFile);
-            EVP_CIPHER_CTX_cleanup(ctx);
+            EVP_CIPHER_CTX_free(ctx);
         }
     }
 
     closedir(dir);
 
-    printf("Los archivos se han encriptado con éxito y se han guardado en la carpeta '%s'.\n", OUTPUT_FOLDER);
+    // Eliminar la carpeta de origen
+    rmdir(INPUT_FOLDER);
+
+    printf("Los archivos se han encriptado con éxito y la carpeta de origen se ha eliminado.\n");
 }
 
 void decryptFiles(const unsigned char *key) {
     OpenSSL_add_all_algorithms();
     ERR_load_crypto_strings();
 
-    char outputFolderPath[256];
-    snprintf(outputFolderPath, sizeof(outputFolderPath), "%s/%s", getenv("USERPROFILE"), "decrypted_files");
-    mkdir(outputFolderPath);
+    // Crear la carpeta de salida para archivos desencriptados
+    ensureOutputFolderExists(DECRYPTED_FOLDER);
 
+    // Abrir la carpeta de archivos encriptados
     DIR *dir = opendir(OUTPUT_FOLDER);
     if (dir == NULL) {
-        perror("Error al abrir la carpeta de origen");
+        perror("Error al abrir la carpeta de archivos encriptados");
         exit(1);
     }
 
@@ -127,29 +125,39 @@ void decryptFiles(const unsigned char *key) {
     while ((entry = readdir(dir)) != NULL) {
         char inputFilePath[512];
         char outputFilePath[512];
-        snprintf(inputFilePath, sizeof(inputFilePath), "%s/%s", OUTPUT_FOLDER, entry->d_name);
-        snprintf(outputFilePath, sizeof(outputFilePath), "%s/%s.dec", outputFolderPath, entry->d_name);
+        snprintf(inputFilePath, sizeof(inputFilePath), "%s\\%s", OUTPUT_FOLDER, entry->d_name);
+        snprintf(outputFilePath, sizeof(outputFilePath), "%s\\%s.dec", DECRYPTED_FOLDER, entry->d_name);
 
-        if (isRegularFile(inputFilePath)) {
+        struct stat path_stat;
+        if (stat(inputFilePath, &path_stat) != 0) {
+            continue;  // Ignorar elementos no válidos
+        }
+
+        if (S_ISREG(path_stat.st_mode)) {
+            // Inicializar el contexto de cifrado para desencriptar
             EVP_CIPHER_CTX *ctx;
-            EVP_CIPHER_CTX_init(ctx);
+            EVP_CIPHER_CTX_new();
 
+            // Configurar el cifrado AES-128 en modo CBC
             if (1 != EVP_DecryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key, NULL)) {
                 handleErrors();
             }
 
+            // Abrir el archivo de entrada encriptado para desencriptar
             FILE *inputFile = fopen(inputFilePath, "rb");
             if (inputFile == NULL) {
-                perror("Error al abrir el archivo de entrada cifrado");
+                perror("Error al abrir el archivo encriptado");
                 exit(1);
             }
 
+            // Crear el archivo de salida desencriptado
             FILE *outputFile = fopen(outputFilePath, "wb");
             if (outputFile == NULL) {
-                perror("Error al crear el archivo de salida desencriptado");
+                perror("Error al crear el archivo desencriptado");
                 exit(1);
             }
 
+            // Realizar la desencriptación en bloques de 128 bits
             unsigned char inbuf[16], outbuf[16];
             int bytesRead, bytesWritten;
             while (1) {
@@ -161,20 +169,22 @@ void decryptFiles(const unsigned char *key) {
                 fwrite(outbuf, 1, bytesWritten, outputFile);
             }
 
+            // Finalizar la desencriptación
             if (1 != EVP_DecryptFinal_ex(ctx, outbuf, &bytesWritten)) {
                 handleErrors();
             }
             fwrite(outbuf, 1, bytesWritten, outputFile);
 
+            // Liberar recursos
             fclose(inputFile);
             fclose(outputFile);
-            EVP_CIPHER_CTX_cleanup(ctx);
+            EVP_CIPHER_CTX_free(ctx);
         }
     }
 
     closedir(dir);
 
-    printf("Los archivos se han desencriptado con éxito y se han guardado en la carpeta 'decrypted_files'.\n");
+    printf("Los archivos se han desencriptado con éxito y se han guardado en la carpeta 'Archivos desencriptados'.\n");
 }
 
 int main() {
@@ -184,6 +194,7 @@ int main() {
     if (keyFile != NULL) {
         fread(key, 1, sizeof(key), keyFile);
         fclose(keyFile);
+        // Llamar a la función para desencriptar
         decryptFiles(key);
     } else {
         if (RAND_bytes(key, sizeof(key)) != 1) {
@@ -196,6 +207,7 @@ int main() {
         }
         fwrite(key, 1, sizeof(key), keyFile);
         fclose(keyFile);
+        // Llamar a la función para encriptar
         encryptFiles(key);
     }
 
