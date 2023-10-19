@@ -44,6 +44,10 @@ void encryptFile(const char *inputFile, const char *outputFile, const unsigned c
             EVP_EncryptUpdate(ctx, buffer, &encryptedLength, buffer, bytesRead);
             fwrite(buffer, 1, encryptedLength, output);
         }
+        while ((bytesRead = fread(buffer, 1, sizeof(buffer), input) > 0)) {
+            EVP_EncryptUpdate(ctx, buffer, &encryptedLength, buffer, bytesRead);
+            fwrite(buffer, 1, encryptedLength, output);
+        }
 
         EVP_EncryptFinal_ex(ctx, buffer, &encryptedLength);
         fwrite(buffer, 1, encryptedLength, output);
