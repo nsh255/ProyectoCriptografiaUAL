@@ -7,9 +7,9 @@
 #include <openssl/aes.h>
 #include <sys/stat.h>
 
-#define INPUT_FOLDER "input_folder"
-#define OUTPUT_FOLDER "encrypted_files"
-#define KEYFILE "keyfile"
+#define INPUT_FOLDER "C:\\Users\\usuario\\Desktop\\Pruebas para criptografía"
+#define OUTPUT_FOLDER "C:\\Users\\usuario\\Desktop\\Archivos encriptados"
+#define KEYFILE "C:\\Users\\usuario\\Desktop\\Clave.txt"
 
 void handleErrors(void) {
     ERR_print_errors_fp(stderr);
@@ -22,6 +22,14 @@ int isRegularFile(const char *path) {
         return 0;
     }
     return S_ISREG(path_stat.st_mode);
+}
+
+void ensureOutputFolderExists() {
+    struct stat st = {0};
+    if (stat(OUTPUT_FOLDER, &st) == -1) {
+        mkdir(OUTPUT_FOLDER);
+        chmod(OUTPUT_FOLDER, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH); // Establecer permisos
+    }
 }
 
 void encryptFiles(const unsigned char *key) {
