@@ -90,10 +90,14 @@ int main() {
     OpenSSL_add_all_algorithms();
 
     // Definir la ruta completa de la carpeta a encriptar
-    const char *Aencriptar = "C:\\Users\\usuario\\Desktop\\patata"; // Ruta a la carpeta con archivos a encriptar
+    const char *LeerRegular = "C:\\Users\\usuario\\Desktop\\patata\\*.*"; // Ruta a la carpeta donde se leeran archivos a encritar
 
     // Definir la ruta completa de la carpeta de salida para archivos encriptados
-    const char *ADesencriptar = "C:\\Users\\usuario\\Desktop\\encriptao"; // Ruta a la carpeta donde se guardarán archivos encriptados
+    const char *LeerEncriptaos = "C:\\Users\\usuario\\Desktop\\encriptao\\*.*"; // Ruta a la carpeta donde se leeran archivos encriptaos
+
+    const char *CarpetaRegular = "C:\\Users\\usuario\\Desktop\\patata\\";
+
+    const char *CarpetaEncriptao = "C:\\Users\\usuario\\Desktop\\encriptao\\";
 
     // Definir la ruta completa al archivo de clave
     const char *keyFileName = "C:\\Users\\usuario\\Desktop\\Clave.txt";
@@ -123,7 +127,7 @@ int main() {
 
         // Realizar operaciones de descifrado sobre los archivos de la carpeta "encriptao"
         WIN32_FIND_DATA findFileData;
-        HANDLE hFind = FindFirstFile(_T(ADesencriptar), &findFileData);
+        HANDLE hFind = FindFirstFile(_T(LeerEncriptaos), &findFileData);
 
         if (hFind != INVALID_HANDLE_VALUE) {
             do {
@@ -131,10 +135,19 @@ int main() {
                     char inputFile[MAX_PATH];
                     char outputFile[MAX_PATH];
 
-                    snprintf(inputFile, sizeof(inputFile), "%s\\%s", ADesencriptar, findFileData.cFileName);
-                    snprintf(outputFile, sizeof(outputFile), "%s\\%s", Aencriptar, findFileData.cFileName);
+                    _sntprintf(inputFile, MAX_PATH, _T("%s\\%s.encriptao"), CarpetaEncriptao, findFileData.cFileName);
+                    _sntprintf(outputFile, MAX_PATH, _T("%s\\%s"), CarpetaEncriptao, findFileData.cFileName);
 
+                    if (_taccess(outputFile, 0) != 0) {
+                        // El archivo de salida no existe, así que lo creamos
+                        FILE *newFile = _tfopen(outputFile, _T("wb"));
+                        if (!newFile) {
+                            printf("Error al crear el archivo de salida: %s\n", outputFile);
+                        }
+                        fclose(newFile);
+                    }
                     decryptFile(inputFile, outputFile, key, iv);
+                    remove(inputFile);
                 }
             } while (FindNextFile(hFind, &findFileData) != 0);
 
@@ -154,7 +167,7 @@ int main() {
 
         // Realizar operaciones de cifrado sobre los archivos de la carpeta "patata"
         WIN32_FIND_DATA findFileData;
-        HANDLE hFind = FindFirstFile(_T(Aencriptar), &findFileData);
+        HANDLE hFind = FindFirstFile(_T(LeerRegular), &findFileData);
 
         if (hFind != INVALID_HANDLE_VALUE) {
             do {
@@ -162,10 +175,19 @@ int main() {
                     char inputFile[MAX_PATH];
                     char outputFile[MAX_PATH];
 
-                    snprintf(inputFile, sizeof(inputFile), "%s\\%s", Aencriptar, findFileData.cFileName);
-                    snprintf(outputFile, sizeof(outputFile), "%s\\%s.enc", ADesencriptar, findFileData.cFileName);
+                    _sntprintf(inputFile, MAX_PATH, _T("%s\\%s"), CarpetaRegular, findFileData.cFileName);
+                    _sntprintf(outputFile, MAX_PATH, _T("%s\\%s.encriptao"), CarpetaEncriptao, findFileData.cFileName);
 
+                    if (_taccess(outputFile, 0) != 0) {
+                        // El archivo de salida no existe, así que lo creamos
+                        FILE *newFile = _tfopen(outputFile, _T("wb"));
+                        if (!newFile) {
+                            printf("Error al crear el archivo de salida: %s\n", outputFile);
+                        }
+                        fclose(newFile);
+                    }
                     encryptFile(inputFile, outputFile, key, iv);
+                    remove(inputFile);
                 }
             } while (FindNextFile(hFind, &findFileData) != 0);
 
