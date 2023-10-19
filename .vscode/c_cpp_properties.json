@@ -10,8 +10,8 @@
                 "UNICODE",
                 "_UNICODE"
             ],
-            "compilerPath": "C:/msys64/ucrt64/bin/gcc.exe",
-            "intelliSenseMode": "windows-gcc-x64"
+            "compilerPath": "C:/Strawberry/c/bin/gcc.exe",
+            "intelliSenseMode": "windows-gcc-x86"
         }
     ],
     "version": 4

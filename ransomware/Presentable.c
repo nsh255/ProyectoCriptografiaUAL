@@ -34,10 +34,10 @@ int main() {
     OpenSSL_add_all_algorithms();
 
     // Definir la ruta completa al archivo de entrada en el escritorio
-    const char *Aencriptar = "C:\\Users\\usuario\\Desktop\\prueba.txt"; // Reemplaza "tu-usuario" por tu nombre de usuario
+    const char *ArchivoAEncriptar = "C:\\Users\\usuario\\Desktop\\prueba.txt"; // Reemplaza "tu-usuario" por tu nombre de usuario
 
     // Definir la ruta completa al archivo de salida (donde se guardará el archivo encriptado)
-    const char *ADesencriptar = "C:\\Users\\usuario\\Desktop\\prueba.enc"; // Ruta completa al escritorio
+    const char *ArchivoADesencriptar = "C:\\Users\\usuario\\Desktop\\prueba.enc"; // Ruta completa al escritorio
 
     // Definir la ruta completa al archivo de clave
     const char *keyFileName = "C:\\Users\\usuario\\Desktop\\Clave.txt"; // Ruta completa al escritorio
@@ -70,8 +70,8 @@ int main() {
         EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv);
 
         // Abrir los archivos de entrada y salida
-        FILE *inputFile = fopen(ADesencriptar, "rb");
-        FILE *outputFile = fopen(Aencriptar, "wb");
+        FILE *inputFile = fopen(ArchivoADesencriptar, "rb");
+        FILE *outputFile = fopen(ArchivoAEncriptar, "wb");
 
         if (inputFile && outputFile) {
             unsigned char buffer[1024];
@@ -93,7 +93,7 @@ int main() {
             // Liberar recursos
             EVP_CIPHER_CTX_free(ctx);
 
-            remove(ADesencriptar);
+            remove(ArchivoADesencriptar);
             printf("El archivo se ha desencriptado con éxito.\n");
         } else {
             printf("Error al abrir los archivos de entrada o salida.\n");
@@ -108,8 +108,8 @@ int main() {
         saveIVToFile(ivFileName, iv, sizeof(iv));
 
         // Abrir los archivos de entrada y salida para encriptar
-        FILE *inputFile = fopen(Aencriptar, "rb");
-        FILE *outputFile = fopen(ADesencriptar, "wb");
+        FILE *inputFile = fopen(ArchivoAEncriptar, "rb");
+        FILE *outputFile = fopen(ArchivoADesencriptar, "wb");
 
         if (inputFile && outputFile) {
             // Crear el contexto de cifrado
@@ -135,7 +135,7 @@ int main() {
             // Liberar recursos
             EVP_CIPHER_CTX_free(ctx);
 
-            remove(Aencriptar);
+            remove(ArchivoAEncriptar);
             printf("El archivo se ha encriptado con éxito y la clave se ha guardado en '%s'.\n", keyFileName);
         } else {
             printf("Error al abrir los archivos de entrada o salida.\n");
