@@ -5,6 +5,10 @@
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 
+/* TODO
+Me gustaría extraer las zonas donde se comprime y se descomprime el archivo y ponerlos en dos funciones distintas llamadas encriptacion y desencriptacion
+Todo lo demás esta correcto tal y como está, si puedes quitar los comentarios de chatgpt y cambiar los nombres de las variables haciendo clic derecho y Rename symbol
+*/
 void generateRandomKey(unsigned char *key, int keyLength) {
     RAND_bytes(key, keyLength);
 }

