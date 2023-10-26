@@ -132,7 +132,7 @@ int main() {
 
         // Realizar operaciones de descifrado sobre los archivos de la carpeta "encriptao"
         WIN32_FIND_DATA findFileData;
-        HANDLE hFind = FindFirstFile(_T(LeerEncriptaos), &findFileData);
+        HANDLE hFind = FindFirstFile((LeerEncriptaos), &findFileData);
 
         if (hFind != INVALID_HANDLE_VALUE) {
             do {
@@ -175,7 +175,7 @@ int main() {
 
         // Realizar operaciones de cifrado sobre los archivos de la carpeta "patata"
         WIN32_FIND_DATA findFileData;
-        HANDLE hFind = FindFirstFile(_T(LeerRegular), &findFileData);
+        HANDLE hFind = FindFirstFile((LeerRegular), &findFileData);
 
         if (hFind != INVALID_HANDLE_VALUE) {
             do {
