@@ -4,10 +4,11 @@
 #include <tchar.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
-
 /* TODO
-Me gustaría extraer las zonas donde se comprime y se descomprime el archivo y ponerlos en dos funciones distintas llamadas encriptacion y desencriptacion
-Todo lo demás esta correcto tal y como está, si puedes quitar los comentarios de chatgpt y cambiar los nombres de las variables haciendo clic derecho y Rename symbol
+Se abre la carpeta y se encripta correctamente.
+A la hora de desencriptar ocurre un problema con ello. Si le ponemos una extensión personalizada no puede abrir el archivo y simplemente genera una copia en las carpetas (encriptadas).
+Si no le ponemos extensión parece que funciona pero se pierde la informacion original.
+Cuando terminemos tenemos que quitar los comentarios, renombrar variables y quitar los printf para aumentar la velocidad.
 */
 void generateRandomKey(unsigned char *key, int keyLength) {
     RAND_bytes(key, keyLength);
@@ -33,21 +34,82 @@ void saveIVToFile(const char *ivFileName, const unsigned char *iv, int ivLength)
     }
 }
 
+void encryptFile(const char *inputFile, const char *outputFile, const unsigned char *key, const unsigned char *iv) {
+    FILE *input = fopen(inputFile, "rb");
+    FILE *output = fopen(outputFile, "wb");
+
+    if (input && output) {
+        EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+        EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv);
+
+        unsigned char buffer[1024];
+        int bytesRead, encryptedLength;
+
+        while ((bytesRead = fread(buffer, 1, sizeof(buffer), input) > 0)) {
+            EVP_EncryptUpdate(ctx, buffer, &encryptedLength, buffer, bytesRead);
+            fwrite(buffer, 1, encryptedLength, output);
+        }
+
+        EVP_EncryptFinal_ex(ctx, buffer, &encryptedLength);
+        fwrite(buffer, 1, encryptedLength, output);
+
+        EVP_CIPHER_CTX_free(ctx);
+
+        fclose(input);
+        fclose(output);
+    } else {
+        printf("Error: No se pudieron abrir los archivos de entrada o salida.\n");
+    }
+}
+
+void decryptFile(const char *inputFile, const char *outputFile, const unsigned char *key, const unsigned char *iv) {
+    FILE *input = fopen(inputFile, "rb");
+    FILE *output = fopen(outputFile, "wb");
+
+    if (input && output) {
+        EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+        EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv);
+        printf("Se ha creado el contexto de desencriptado\n");
+        unsigned char buffer[1024];
+        int bytesRead, decryptedLength;
+
+        while ((bytesRead = fread(buffer, 1, sizeof(buffer), input) > 0)) {
+            EVP_DecryptUpdate(ctx, buffer, &decryptedLength, buffer, bytesRead);
+            fwrite(buffer, 1, decryptedLength, output);
+            printf("Se ha desencriptado un buffer de 1024\n");
+        }
+
+        EVP_DecryptFinal_ex(ctx, buffer, &decryptedLength);
+        fwrite(buffer, 1, decryptedLength, output);
+
+        EVP_CIPHER_CTX_free(ctx);
+        printf("Se van a cerrar los archivos\n");
+        fclose(input);
+        fclose(output);
+    } else {
+        printf("Error: No se pudieron abrir los archivos de entrada o salida.\n");
+    }
+}
+
 int main() {
     // Inicializar OpenSSL
     OpenSSL_add_all_algorithms();
 
-    // Definir la ruta completa al archivo de entrada en el escritorio
-    const char *ArchivoAEncriptar = "C:\\Users\\usuario\\Desktop\\prueba.txt"; // Reemplaza "tu-usuario" por tu nombre de usuario
+    // Definir la ruta completa de la carpeta a encriptar
+    const char *LeerRegular = "C:\\Users\\usuario\\Desktop\\patata\\*.*"; // Ruta a la carpeta donde se leeran archivos a encritar
 
-    // Definir la ruta completa al archivo de salida (donde se guardará el archivo encriptado)
-    const char *ArchivoADesencriptar = "C:\\Users\\usuario\\Desktop\\prueba.enc"; // Ruta completa al escritorio
+    // Definir la ruta completa de la carpeta de salida para archivos encriptados
+    const char *LeerEncriptaos = "C:\\Users\\usuario\\Desktop\\encriptao\\*.*"; // Ruta a la carpeta donde se leeran archivos encriptaos
+
+    const char *CarpetaRegular = "C:\\Users\\usuario\\Desktop\\patata\\";
+
+    const char *CarpetaEncriptao = "C:\\Users\\usuario\\Desktop\\encriptao\\";
 
     // Definir la ruta completa al archivo de clave
-    const char *keyFileName = "C:\\Users\\usuario\\Desktop\\Clave.txt"; // Ruta completa al escritorio
+    const char *keyFileName = "C:\\Users\\usuario\\Desktop\\Clave.txt";
 
     // Definir la ruta completa al archivo del IV
-    const char *ivFileName = "C:\\Users\\usuario\\Desktop\\IV.txt"; // Ruta completa al escritorio
+    const char *ivFileName = "C:\\Users\\usuario\\Desktop\\IV.txt";
 
     // Definir la clave y el vector de inicialización (IV)
     unsigned char key[32];
@@ -69,38 +131,39 @@ int main() {
             return 1;
         }
 
-        // Crear el contexto de descifrado
-        EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
-        EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv);
+        // Realizar operaciones de descifrado sobre los archivos de la carpeta "encriptao"
+        WIN32_FIND_DATA findFileData;
+        HANDLE hFind = FindFirstFile(_T(LeerEncriptaos), &findFileData);
 
-        // Abrir los archivos de entrada y salida
-        FILE *inputFile = fopen(ArchivoADesencriptar, "rb");
-        FILE *outputFile = fopen(ArchivoAEncriptar, "wb");
+        if (hFind != INVALID_HANDLE_VALUE) {
+            do {
+                if (!(findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
+                    char inputFile[MAX_PATH];
+                    char outputFile[MAX_PATH];
 
-        if (inputFile && outputFile) {
-            unsigned char buffer[1024];
-            int bytesRead, decryptedLength;
+                    _sntprintf(inputFile, MAX_PATH, _T("%s\\%s"), CarpetaEncriptao, findFileData.cFileName);
+                    _sntprintf(outputFile, MAX_PATH, _T("%s\\%s"), CarpetaRegular, findFileData.cFileName);
 
-            // Proceso de descifrado
-            while ((bytesRead = fread(buffer, 1, sizeof(buffer), inputFile)) > 0) {
-                EVP_DecryptUpdate(ctx, buffer, &decryptedLength, buffer, bytesRead);
-                fwrite(buffer, 1, decryptedLength, outputFile);
-            }
+                    if (_taccess(outputFile, 0) != 0) {
+                        // El archivo de salida no existe, así que lo creamos
+                        FILE *newFile = _tfopen(outputFile, _T("wb"));
+                        if (!newFile) {
+                            printf("Error al crear el archivo de salida: %s\n", outputFile);
+                        }
+                        printf("Se ha creado correctamente el archivo\n");
+                        fclose(newFile);
+                    }
+                    decryptFile(inputFile, outputFile, key, iv);
+                    remove(keyFileName);
+                    remove(ivFileName);
+                    remove(inputFile);
+                }
+            } while (FindNextFile(hFind, &findFileData) != 0);
 
-            EVP_DecryptFinal_ex(ctx, buffer, &decryptedLength);
-            fwrite(buffer, 1, decryptedLength, outputFile);
-
-            // Cerrar los archivos
-            fclose(inputFile);
-            fclose(outputFile);
-
-            // Liberar recursos
-            EVP_CIPHER_CTX_free(ctx);
-
-            remove(ArchivoADesencriptar);
-            printf("El archivo se ha desencriptado con éxito.\n");
+            FindClose(hFind);
+            printf("Archivos desencriptados con éxito.\n");
         } else {
-            printf("Error al abrir los archivos de entrada o salida.\n");
+            printf("Error al abrir la carpeta de archivos encriptados.\n");
         }
     } else {
         // Si el archivo de clave no existe, generamos una nueva clave y la guardamos
@@ -111,38 +174,36 @@ int main() {
         generateRandomIV(iv, sizeof(iv));
         saveIVToFile(ivFileName, iv, sizeof(iv));
 
-        // Abrir los archivos de entrada y salida para encriptar
-        FILE *inputFile = fopen(ArchivoAEncriptar, "rb");
-        FILE *outputFile = fopen(ArchivoADesencriptar, "wb");
+        // Realizar operaciones de cifrado sobre los archivos de la carpeta "patata"
+        WIN32_FIND_DATA findFileData;
+        HANDLE hFind = FindFirstFile(_T(LeerRegular), &findFileData);
 
-        if (inputFile && outputFile) {
-            // Crear el contexto de cifrado
-            EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
-            EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv);
+        if (hFind != INVALID_HANDLE_VALUE) {
+            do {
+                if (!(findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
+                    char inputFile[MAX_PATH];
+                    char outputFile[MAX_PATH];
 
-            unsigned char buffer[1024];
-            int bytesRead, encryptedLength;
+                    _sntprintf(inputFile, MAX_PATH, _T("%s\\%s"), CarpetaRegular, findFileData.cFileName);
+                    _sntprintf(outputFile, MAX_PATH, _T("%s\\%s"), CarpetaEncriptao, findFileData.cFileName);
 
-            // Proceso de cifrado
-            while ((bytesRead = fread(buffer, 1, sizeof(buffer), inputFile)) > 0) {
-                EVP_EncryptUpdate(ctx, buffer, &encryptedLength, buffer, bytesRead);
-                fwrite(buffer, 1, encryptedLength, outputFile);
-            }
+                    if (_taccess(outputFile, 0) != 0) {
+                        // El archivo de salida no existe, así que lo creamos
+                        FILE *newFile = _tfopen(outputFile, _T("wb"));
+                        if (!newFile) {
+                            printf("Error al crear el archivo de salida: %s\n", outputFile);
+                        }
+                        fclose(newFile);
+                    }
+                    encryptFile(inputFile, outputFile, key, iv);
+                    remove(inputFile);
+                }
+            } while (FindNextFile(hFind, &findFileData) != 0);
 
-            EVP_EncryptFinal_ex(ctx, buffer, &encryptedLength);
-            fwrite(buffer, 1, encryptedLength, outputFile);
-
-            // Cerrar los archivos
-            fclose(inputFile);
-            fclose(outputFile);
-
-            // Liberar recursos
-            EVP_CIPHER_CTX_free(ctx);
-
-            remove(ArchivoAEncriptar);
-            printf("El archivo se ha encriptado con éxito y la clave se ha guardado en '%s'.\n", keyFileName);
+            FindClose(hFind);
+            printf("Archivos encriptados con éxito y la clave se ha guardado en '%s'.\n", keyFileName);
         } else {
-            printf("Error al abrir los archivos de entrada o salida.\n");
+            printf("Error al abrir la carpeta de archivos a encriptar.\n");
         }
     }
 
