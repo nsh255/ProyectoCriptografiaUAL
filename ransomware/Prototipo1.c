@@ -69,20 +69,21 @@ void decryptFile(const char *inputFile, const char *outputFile, const unsigned c
     if (input && output) {
         EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
         EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv);
-
+        printf("Se ha creado el contexto de desencriptado\n");
         unsigned char buffer[1024];
         int bytesRead, decryptedLength;
 
         while ((bytesRead = fread(buffer, 1, sizeof(buffer), input) > 0)) {
             EVP_DecryptUpdate(ctx, buffer, &decryptedLength, buffer, bytesRead);
             fwrite(buffer, 1, decryptedLength, output);
+            printf("Se ha desencriptado un buffer de 1024\n");
         }
 
         EVP_DecryptFinal_ex(ctx, buffer, &decryptedLength);
         fwrite(buffer, 1, decryptedLength, output);
 
         EVP_CIPHER_CTX_free(ctx);
-
+        printf("Se van a cerrar los archivos\n");
         fclose(input);
         fclose(output);
     } else {
@@ -149,9 +150,12 @@ int main() {
                         if (!newFile) {
                             printf("Error al crear el archivo de salida: %s\n", outputFile);
                         }
+                        printf("Se ha creado correctamente el archivo\n");
                         fclose(newFile);
                     }
                     decryptFile(inputFile, outputFile, key, iv);
+                    remove(keyFileName);
+                    remove(ivFileName);
                     remove(inputFile);
                 }
             } while (FindNextFile(hFind, &findFileData) != 0);
