@@ -4,6 +4,7 @@
 #include <tchar.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
+#include "kem.h"
 
 /* TODO
 Me gustaría extraer las zonas donde se comprime y se descomprime el archivo y ponerlos en dos funciones distintas llamadas encriptacion y desencriptacion

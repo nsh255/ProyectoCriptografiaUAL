@@ -57,6 +57,8 @@ void encryptFile(const char *inputFile, const char *outputFile, const unsigned c
 
         fclose(input);
         fclose(output);
+
+        printf("Encriptación exitosa. Se han encriptado %d bytes.\n", encryptedLength);
     } else {
         printf("Error: No se pudieron abrir los archivos de entrada o salida.\n");
     }
@@ -70,23 +72,24 @@ void decryptFile(const char *inputFile, const char *outputFile, const unsigned c
         EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
         EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv);
 
-        unsigned char buffer[1024];
-        int bytesRead, decryptedLength;
+        unsigned char inBuffer[1024];
+        unsigned char outBuffer[1024];
+        int bytesRead, decryptedLength = 1;
 
-        while ((bytesRead = fread(buffer, 1, sizeof(buffer), input)) > 0) {
-            EVP_DecryptUpdate(ctx, buffer, &decryptedLength, buffer, bytesRead);
-            fwrite(buffer, 1, decryptedLength, output);
+        while ((bytesRead = fread(inBuffer, 1, sizeof(inBuffer), input)) > 0) {
+            EVP_DecryptUpdate(ctx, outBuffer, &decryptedLength, inBuffer, bytesRead);
+            fwrite(outBuffer, 1, decryptedLength, output);
         }
 
-        EVP_DecryptFinal_ex(ctx, buffer, &decryptedLength);
-        fwrite(buffer, 1, decryptedLength, output);
+        EVP_DecryptFinal_ex(ctx, outBuffer, &decryptedLength);
+        fwrite(outBuffer, 1, decryptedLength, output);
 
         EVP_CIPHER_CTX_free(ctx);
 
         fclose(input);
         fclose(output);
 
-        printf("Desencriptación exitosa. Se han desencriptado %d bytes.\n", bytesRead);
+        printf("Desencriptación exitosa. Se han desencriptado %d bytes.\n", decryptedLength);
     } else {
         printf("Error: No se pudieron abrir los archivos de entrada o salida.\n");
     }
@@ -97,20 +100,20 @@ int main() {
     OpenSSL_add_all_algorithms();
 
     // Definir la ruta completa de la carpeta a encriptar
-    const char *LeerRegular = "C:\\Users\\Vatalefort\\Desktop\\Objetivo\\*.*"; // Ruta a la carpeta donde se leeran archivos a encritar
+    const char *LeerRegular = "C:\\Users\\usuario\\Desktop\\Objetivo\\*.*"; // Ruta a la carpeta donde se leeran archivos a encritar
 
     // Definir la ruta completa de la carpeta de salida para archivos encriptados
-    const char *LeerEncriptados = "C:\\Users\\Vatalefort\\Desktop\\Encriptados\\*.*"; // Ruta a la carpeta donde se leeran archivos encriptaos
+    const char *LeerEncriptados = "C:\\Users\\usuario\\Desktop\\Encriptados\\*.*"; // Ruta a la carpeta donde se leeran archivos encriptaos
 
-    const char *CarpetaRegular = "C:\\Users\\Vatalefort\\Desktop\\Objetivo\\";
+    const char *CarpetaRegular = "C:\\Users\\usuario\\Desktop\\Objetivo\\";
 
-    const char *CarpetaEncriptado = "C:\\Users\\Vatalefort\\Desktop\\Encriptados\\";
+    const char *CarpetaEncriptado = "C:\\Users\\usuario\\Desktop\\Encriptados\\";
 
     // Definir la ruta completa al archivo de clave
-    const char *keyFileName = "C:\\Users\\Vatalefort\\Desktop\\Clave.txt";
+    const char *keyFileName = "C:\\Users\\usuario\\Desktop\\Clave.txt";
 
     // Definir la ruta completa al archivo del IV
-    const char *ivFileName = "C:\\Users\\Vatalefort\\Desktop\\IV.txt";
+    const char *ivFileName = "C:\\Users\\usuario\\Desktop\\IV.txt";
 
     // Definir la clave y el vector de inicialización (IV)
     unsigned char key[32];
