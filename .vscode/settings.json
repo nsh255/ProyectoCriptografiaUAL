@@ -9,6 +9,11 @@
         "property.h": "c",
         "provider.h": "c",
         "context.h": "c",
-        "kem.h": "c"
+        "kem.h": "c",
+        "params.h": "c",
+        "evp.h": "c",
+        "evperr.h": "c",
+        "randombytes.h": "c",
+        "symmetric.h": "c"
     }
 }

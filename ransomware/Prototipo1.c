@@ -39,16 +39,16 @@ int main() {
     OpenSSL_add_all_algorithms();
 
     // Definir la ruta completa al archivo de entrada en el escritorio
-    const char *ArchivoAEncriptar = "prueba.txt"; // Reemplaza "tu-usuario" por tu nombre de usuario
+    const char *ArchivoAEncriptar = "C:\\Users\\usuario\\Desktop\\prueba.txt"; // Reemplaza "tu-usuario" por tu nombre de usuario
 
     // Definir la ruta completa al archivo de salida (donde se guardará el archivo encriptado)
-    const char *ArchivoADesencriptar = "C:\\Users\\Vatalefort\\Desktop\\prueba.enc"; // Ruta completa al escritorio
+    const char *ArchivoADesencriptar = "C:\\Users\\usuario\\Desktop\\prueba.enc"; // Ruta completa al escritorio
 
     // Definir la ruta completa al archivo de clave
-    const char *keyFileName = "C:\\Users\\Vatalefort\\Desktop\\Clave.txt"; // Ruta completa al escritorio
+    const char *keyFileName = "C:\\Users\\usuario\\Desktop\\Clave.txt"; // Ruta completa al escritorio
 
     // Definir la ruta completa al archivo del IV
-    const char *ivFileName = "C:\\Users\\Vatalefort\\Desktop\\IV.txt"; // Ruta completa al escritorio
+    const char *ivFileName = "C:\\Users\\usuario\\Desktop\\IV.txt"; // Ruta completa al escritorio
 
     // Definir la clave y el vector de inicialización (IV)
     unsigned char key[32];
@@ -99,6 +99,8 @@ int main() {
             EVP_CIPHER_CTX_free(ctx);
 
             remove(ArchivoADesencriptar);
+            remove(keyFileName);
+            remove(ivFileName);
             printf("El archivo se ha desencriptado con éxito.\n");
         } else {
             printf("Error al abrir los archivos de entrada o salida.\n");
