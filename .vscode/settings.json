@@ -14,6 +14,13 @@
         "evp.h": "c",
         "evperr.h": "c",
         "randombytes.h": "c",
-        "symmetric.h": "c"
+        "symmetric.h": "c",
+        "stdint.h": "c",
+        "verify.h": "c",
+        "indcpa.h": "c",
+        "polyvec.h": "c",
+        "poly.h": "c",
+        "rsa.h": "c",
+        "_mingw_mac.h": "c"
     }
 }
