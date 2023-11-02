@@ -87,7 +87,6 @@ void encryptWithPublicKey(const char* inputFileName, const char* outputFileName,
     }
 }
 
-
 void decryptWithPrivateKey(const char* inputFileName, const char* outputFileName, RSA* privateKey) {
     // Abre el archivo cifrado de entrada y el archivo de salida
     FILE* inputFile = fopen(inputFileName, "rb");
@@ -106,7 +105,7 @@ void decryptWithPrivateKey(const char* inputFileName, const char* outputFileName
             if (bytesRead == 0) {
                 break;
             }
-
+            
             int decryptedSize = RSA_private_decrypt(bytesRead, inputBuffer, outputBuffer, privateKey, RSA_PKCS1_PADDING);
             if (decryptedSize < 0) {
                 // Manejo de error
@@ -145,8 +144,6 @@ void encriptacion(const char *inputFileName, const char *outputFileName, const c
 
     encryptWithPublicKey(keyFileName, claveAEScifrada, clavePublica);
     encryptWithPublicKey(ivFileName, ivAEScifrada, clavePublica);
-    
-    printf("Se ha encriptado la key y el iv\n");
 
     RSA_free(clavePublica);
 
@@ -191,8 +188,6 @@ void desencriptacion(const char *inputFileName, const char *outputFileName, cons
 
     decryptWithPrivateKey(claveAEScifrada, keyFileName, clavePrivada);
     decryptWithPrivateKey(ivAEScifrada, ivFileName, clavePrivada);
-
-    printf("Se ha desencriptado la clave y el IV\n");
 
     RSA_free(clavePrivada);
 
