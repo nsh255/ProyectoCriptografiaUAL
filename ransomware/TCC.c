@@ -176,12 +176,12 @@ int main()
 
             // Comprobamos si está encriptado o no el archivo //
             // ENCRIPTAMOS //
-            if(_stricmp(extension, ".enc") != 0){
+            if(_stricmp(extension, ".cifrado") != 0){
                 char inputFileName[1024];
                 PathCombineA(inputFileName, Target, File->d_name);
                 printf("Ruta del archivo: %s\n", inputFileName);
                 FILE *inputFile = fopen(inputFileName, "rb");
-                const char *enc = ".enc";
+                const char *enc = ".cifrado";
                 char outputFileName[1024]; // Declarar un búfer para el nombre de archivo de salida
                 strcpy(outputFileName, File->d_name); // Copiar el nombre del archivo original
                 strcat(PathCombineA(outputFileName, Encriptado, File->d_name), enc); // Concatenar la extensión ".enc"
@@ -193,7 +193,7 @@ int main()
                     printf("se abren bien los archivos");
                     // Creamos el contexto
                     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
-                    EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, NULL, NULL);
+                    EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, NULL, NULL);
                     EVP_EncryptInit_ex(ctx, NULL, NULL, key, iv);
                     unsigned char inBuf[1024];
                     unsigned char outBuf[1040];
@@ -261,8 +261,8 @@ int main()
 
             // Comprobamos si está encriptado o no el archivo //
             // Desencriptamos //
-            if(_stricmp(extension, ".enc") == 0){
-                printf("La extensión es .enc \n");
+            if(_stricmp(extension, ".cifrado") == 0){
+                printf("La extensión es .cifrado \n");
                 // Lee la clave y la extrae//
                 FILE *keyFile = fopen(keyFileName, "rb");
                 fread(key, 1, sizeof(key), keyFile);
@@ -277,7 +277,7 @@ int main()
                 char inputFileName[1024];
                 PathCombineA(inputFileName, Encriptado, File->d_name);
                 FILE *inputFile = fopen(inputFileName, "rb");
-                const char *enc = ".enc";
+                const char *enc = ".cifrado";
                 char outputFileName[1024]; // Declarar un búfer para el nombre de archivo de salida
                 strcpy(outputFileName, File->d_name); // Copiar el nombre del archivo original
                 char *encPtr = strstr(PathCombineA(outputFileName,Target,File->d_name), enc);
@@ -290,7 +290,7 @@ int main()
                 if(inputFile && outputFile){
                     printf("input y output fino \n");
                     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
-                    EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, NULL, NULL);
+                    EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, NULL, NULL);
                     EVP_DecryptInit_ex(ctx, NULL, NULL, key, iv);
                     unsigned char inBuf[1024];
                     unsigned char outBuf[1040];
