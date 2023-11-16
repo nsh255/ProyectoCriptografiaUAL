@@ -5,8 +5,70 @@
 #include <openssl/pem.h>
 #include <openssl/evp.h>
 
+int signRSAWithECDSA(const char *private_key_path, const char *file_path, const char *signature_path) {
+    int ret = 0;
+    //RAND_poll(); // Inicializar generador de números aleatorios
+
+    // Leer la clave privada
+    FILE *private_key_file = fopen(private_key_path, "r");
+    if (!private_key_file)
+        return 0;
+
+    EC_KEY *private_key = PEM_read_ECPrivateKey(private_key_file, NULL, NULL, NULL);
+    if (!private_key)
+        return 0;
+
+    fclose(private_key_file);
+
+    // Leer el archivo a firmar
+    FILE *file = fopen(file_path, "rb");
+    if (!file)
+        return 0;
+
+    fseek(file, 0L, SEEK_END); //puntero a final archivo
+
+    long file_size = ftell(file); //determina el tamaño del archivo
+
+    rewind(file); //Puntero vuelve a inico del archivo
+
+    unsigned char *data = malloc(file_size); //Asigna memoria para almacenar el contenido del archivo
+    if (!data)
+        return 0;
+
+    fread(data, 1, file_size, file);
+    fclose(file);
+
+    // Firmar el archivo
+    ECDSA_SIG *signature = ECDSA_do_sign(data, file_size, private_key);
+    if (!signature){
+        //ERR_print_errors_fp(stderr);
+        return 0;
+}
+    // Guardar la firma
+    FILE *signature_file = fopen(signature_path, "wb");
+    if (!signature_file) return 0;
+
+    i2d_ECDSA_SIG(signature, NULL); // Serializar la firma para determinar el tamaño
+    unsigned char *sig_data = malloc(i2d_ECDSA_SIG(signature, NULL));
+    unsigned char *p = sig_data;
+    i2d_ECDSA_SIG(signature, &p);
+    fwrite(sig_data, 1, p - sig_data, signature_file);
+    free(sig_data);
+
+
+    fclose(signature_file);
+
+    // Liberar recursos
+    ECDSA_SIG_free(signature);
+    EC_KEY_free(private_key);
+    free(data);
+
+    return ret;
+}
+
+
 // Función para calcular la firma ECDSA de la clave privada RSA
-int signRSAWithECDSA(const char *rsaPrivateKeyFile, const char *ecdsaPrivateKeyFile, const char *outputFile) {
+/*int signRSAWithECDSA(const char *rsaPrivateKeyFile, const char *ecdsaPrivateKeyFile, const char *signatureFile) {
     // Cargar la clave privada RSA desde el archivo
     FILE *rsaFile = fopen(rsaPrivateKeyFile, "rb");
     if (!rsaFile) {
@@ -162,10 +224,10 @@ int signRSAWithECDSA(const char *rsaPrivateKeyFile, const char *ecdsaPrivateKeyF
         return 1;
     }
 
-    // Abrir el archivo de salida
-    FILE *outputFilePtr = fopen(outputFile, "wb");
-    if (!outputFilePtr) {
-        perror("Error al abrir el archivo de salida");
+    // Abrir el archivo de salida para la firma
+    FILE *signatureFilePtr = fopen(signatureFile, "wb");
+    if (!signatureFilePtr) {
+        perror("Error al abrir el archivo de salida para la firma");
         free(rsaData);
         free(ecdsaData);
         free(signature);
@@ -175,22 +237,11 @@ int signRSAWithECDSA(const char *rsaPrivateKeyFile, const char *ecdsaPrivateKeyF
         return 1;
     }
 
-    // Escribir los datos de la clave privada RSA en el archivo de salida
-    fwrite(rsaData, 1, rsaFileSize, outputFilePtr);
-
-    // Escribir los delimitadores de la firma
-    const char *beginDelimiter = "-----BEGIN ECDSA SIGNATURE-----\n";
-    fwrite(beginDelimiter, 1, strlen(beginDelimiter), outputFilePtr);
-
     // Escribir la firma en el archivo de salida
-    fwrite(signature, 1, signatureLen, outputFilePtr);
+    fwrite(signature, 1, signatureLen, signatureFilePtr);
 
-    // Escribir los delimitadores de fin de firma
-    const char *endDelimiter = "\n-----END ECDSA SIGNATURE-----\n";
-    fwrite(endDelimiter, 1, strlen(endDelimiter), outputFilePtr);
-
-    // Cerrar el archivo de salida
-    fclose(outputFilePtr);
+    // Cerrar el archivo de salida para la firma
+    fclose(signatureFilePtr);
 
     // Liberar la memoria y recursos
     free(rsaData);
@@ -200,18 +251,18 @@ int signRSAWithECDSA(const char *rsaPrivateKeyFile, const char *ecdsaPrivateKeyF
     EVP_PKEY_free(ecdsaPkey);
     EVP_MD_CTX_free(mdctx);
 
-    printf("La clave privada RSA fue firmada con éxito.\n");
+    printf("La clave privada RSA fue firmada con éxito. La firma se guardó en %s.\n", signatureFile);
 
     return 0;
-}
+}*/
 
 int main() {
-    const char *rsaPrivateKeyFile = "C:\\Users\\usuario\\Desktop\\claves\\clave_privada_rsa.pem";
+    const char *rsaPrivateKeyFile = "C:\\Users\\usuario\\Desktop\\clave_privada_rsa.pem";
     const char *ecdsaPrivateKeyFile = "C:\\Users\\usuario\\Desktop\\claves\\clave_privada_firma.pem";
-    const char *outputFile = "C:\\Users\\usuario\\Desktop\\signed_rsa_with_ecdsa.pem";
+    const char *signatureFile = "C:\\Users\\usuario\\Desktop\\firma_ecdsa.txt";
 
-    // Firmar la clave privada RSA con ECDSA
-    signRSAWithECDSA(rsaPrivateKeyFile, ecdsaPrivateKeyFile, outputFile);
+    // Firmar la clave privada RSA con ECDSA y guardar la firma en un archivo separado
+    signRSAWithECDSA(ecdsaPrivateKeyFile, rsaPrivateKeyFile, signatureFile);
 
     return 0;
 }

