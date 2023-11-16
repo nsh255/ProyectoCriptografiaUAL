@@ -21,6 +21,7 @@
         "polyvec.h": "c",
         "poly.h": "c",
         "rsa.h": "c",
-        "_mingw_mac.h": "c"
+        "_mingw_mac.h": "c",
+        "stdio.h": "c"
     }
 }
