@@ -57,8 +57,8 @@ void generateECDSAKeyPair(const char *privateKeyFileName, const char *publicKeyF
 
 int main() {
 
-    generateECDSAKeyPair("C:\\Users\\usuario\\Desktop\\clave_privada_firma.pem", "C:\\Users\\usuario\\Desktop\\clave_publica_firma.pem");
-    generateRSAKeyPair("C:\\Users\\usuario\\Desktop\\clave_privada_rsa.pem", "C:\\Users\\usuario\\Desktop\\clave_publica_rsa.pem");
+    generateECDSAKeyPair("C:\\Users\\usuario\\Desktop\\claves\\clave_privada_firma.pem", "C:\\Users\\usuario\\Desktop\\claves\\clave_publica_firma.pem");
+    generateRSAKeyPair("C:\\Users\\usuario\\Desktop\\claves\\clave_privada_rsa.pem", "C:\\Users\\usuario\\Desktop\\claves\\clave_publica_rsa.pem");
     
     return 0;
 }
