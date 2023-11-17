@@ -6,67 +6,6 @@
 #include <openssl/evp.h>
 #include <openssl/err.h>
 
-/*int signRSAWithECDSA(const char *private_key_path, const char *file_path, const char *signature_path) {
-    int ret = 0;
-    //RAND_poll(); // Inicializar generador de números aleatorios
-
-    // Leer la clave privada
-    FILE *private_key_file = fopen(private_key_path, "r");
-    if (!private_key_file)
-        return 0;
-
-    EC_KEY *private_key = PEM_read_ECPrivateKey(private_key_file, NULL, NULL, NULL);
-    if (!private_key)
-        return 0;
-
-    fclose(private_key_file);
-
-    // Leer el archivo a firmar
-    FILE *file = fopen(file_path, "rb");
-    if (!file)
-        return 0;
-
-    fseek(file, 0L, SEEK_END); //puntero a final archivo
-
-    long file_size = ftell(file); //determina el tamaño del archivo
-
-    rewind(file); //Puntero vuelve a inico del archivo
-
-    unsigned char *data = malloc(file_size); //Asigna memoria para almacenar el contenido del archivo
-    if (!data)
-        return 0;
-
-    fread(data, 1, file_size, file);
-    fclose(file);
-
-    // Firmar el archivo
-    ECDSA_SIG *signature = ECDSA_do_sign(data, file_size, private_key);
-    if (!signature){
-        //ERR_print_errors_fp(stderr);
-        return 0;
-}
-    // Guardar la firma
-    FILE *signature_file = fopen(signature_path, "wb");
-    if (!signature_file) return 0;
-
-    i2d_ECDSA_SIG(signature, NULL); // Serializar la firma para determinar el tamaño
-    unsigned char *sig_data = malloc(i2d_ECDSA_SIG(signature, NULL));
-    unsigned char *p = sig_data;
-    i2d_ECDSA_SIG(signature, &p);
-    fwrite(sig_data, 1, p - sig_data, signature_file);
-    free(sig_data);
-
-
-    fclose(signature_file);
-
-    // Liberar recursos
-    ECDSA_SIG_free(signature);
-    EC_KEY_free(private_key);
-    free(data);
-
-    return ret;
-}*/
-
 int signRSAWithECDSA(const char *ruta_archivo, const char *clave_privada, const char *rutaAFirma) {
      // Leer el archivo a firmar
     FILE *file = fopen(ruta_archivo, "rb");

