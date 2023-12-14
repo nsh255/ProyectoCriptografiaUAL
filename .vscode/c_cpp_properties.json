@@ -3,7 +3,9 @@
         {
             "name": "Win32",
             "includePath": [
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "C:\\liboqs\\build_mingw\\include",
+                "C:/liboqs/build_mingw/include/oqs"
             ],
             "defines": [
                 "_DEBUG",
