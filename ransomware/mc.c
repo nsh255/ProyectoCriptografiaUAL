@@ -3,37 +3,30 @@
 #include <math.h>
 #include <string.h>
 
-#define N 256
-#define K 128
+#define N 7
+#define K 4
 
-// Convierte el texto claro en una matriz de código de Hamming
-int **text_to_code_matrix_hamming(char *text)
-{
-    int **matrix = malloc(sizeof(int *) * N);
-    for (int i = 0; i < N; i++)
-    {
-        matrix[i] = malloc(sizeof(int) * 1);
-        matrix[i][0] = text[i] - '0';
-    }
-    return matrix;
-}
-
-// Multiplica dos matrices
-int **matrix_multiply(int **matrix1, int **matrix2)
-{
-    int **result = malloc(sizeof(int *) * N);
-    for (int i = 0; i < N; i++)
-    {
-        result[i] = malloc(sizeof(int) * N);
-        for (int j = 0; j < N; j++)
-        {
-            result[i][j] = 0;
-            for (int k = 0; k < N; k++)
-            {
-                result[i][j] += matrix1[i][k] * matrix2[k][j];
-            }
+void text_to_code(const char *input, int *output) {
+    int len = strlen(input);
+    for (int i = 0; i < len; ++i) {
+        for (int j = 7; j >= 0; --j) {
+            output[(i * 8) + (7 - j)] = (input[i] >> j) & 1;
         }
     }
+}
+
+int *matrix_multiply(int *matrix, int **matrix2) {
+    printf("Matrix: ");
+    int *result = calloc(N, sizeof(int));
+    for (int i = 0; i < N; ++i) {
+        printf("%d ", matrix[i]);
+        result[i] = 0;
+        for (int j = 0; j < N; ++j) {
+            printf("%d ", matrix2[i][j]);
+            result[i] += matrix2[i][j] * matrix[j];
+        }
+    }
+    printf("Result: ");
     return result;
 }
 
@@ -88,40 +81,44 @@ int **correct_errors_hamming(int **matrix)
 }
 
 // Cifra el texto claro con códigos de Hamming
-int **encrypt_hamming(char *text, int **generator_matrix, int **parity_matrix)
+int *encrypt_hamming(char *text, int **generator_matrix, int **parity_matrix)
 {
     // Convierte el texto claro en una matriz de código
-    int **code_matrix = text_to_code_matrix_hamming(text);
-
+    //int *code_matrix = malloc(sizeof(int) * N * strlen(text));
+    printf("Text: ");
+    int *code_matrix = calloc(N * strlen(text), sizeof(int));
+    text_to_code(text, code_matrix);
+    printf("Code matrix: ");
     // Multiplica la matriz de código por la matriz de generadores
-    int **ciphertext = matrix_multiply(code_matrix, generator_matrix);
+    int *ciphertext = matrix_multiply(code_matrix, generator_matrix);
 
     return ciphertext;
 }
 
 // Descifra el texto cifrado con códigos de Hamming
-char *decrypt_hamming(int **ciphertext, int **generator_matrix, int **parity_matrix)
+char *decrypt_hamming(int *ciphertext, int **generator_matrix, int **parity_matrix)
 {
     // Invierte la matriz de generadores
     int **inverse_generator_matrix = matrix_inverse(generator_matrix);
 
     // Multiplica la matriz cifrada por la inversa de la matriz de generadores
-    int **corrected_ciphertext = matrix_multiply(ciphertext, inverse_generator_matrix);
+    int *corrected_ciphertext = matrix_multiply(ciphertext, inverse_generator_matrix);
 
     // Corrige los errores en la matriz cifrada corregida
-    corrected_ciphertext = correct_errors_hamming(corrected_ciphertext);
+//    corrected_ciphertext = correct_errors_hamming(corrected_ciphertext);
 
     // Convierte la matriz cifrada corregida en texto claro
     char *plaintext = calloc(N + 1, sizeof(char)); // +1 para el carácter nulo al final
     if (plaintext == NULL)
     {
         // Manejar error de asignación de memoria
+        printf("Error: No se pudo asignar memoria para el texto claro.\n");
         exit(1);
     }
 
     for (int i = 0; i < N; i++)
     {
-        char str[2] = {corrected_ciphertext[i][0] + '0', '\0'};
+        char str[2] = {corrected_ciphertext[i] + '0', '\0'};
         strncat(plaintext, str, 1);
     }
 
@@ -131,26 +128,45 @@ char *decrypt_hamming(int **ciphertext, int **generator_matrix, int **parity_mat
 // Ejemplo de uso
 int main()
 {
-    // Genera la clave pública
-    int generator_matrix[7][4] = {{1, 0, 0, 0, 1, 1, 1}, 
-                                  {1, 1, 0, 0, 0, 1, 1}, 
-                                  {1, 1, 1, 0, 0, 0, 1}, 
-                                  {0, 1, 1, 1, 0, 0, 1}, 
-                                  {0, 0, 1, 1, 1, 0, 1}, 
-                                  {0, 0, 0, 1, 1, 1, 1}};
-                                  
-    int parity_matrix[7][3] = {{1, 1, 1, 1, 0, 0, 0}, 
-                               {1, 1, 0, 0, 1, 1, 0}, 
-                               {1, 0, 1, 0, 1, 0, 1}};
+    // Matriz generadora (G)
+    int generatorMatrix[K][N] = {
+        {1, 0, 0, 0, 1, 1, 1},
+        {0, 1, 0, 0, 1, 0, 1},
+        {0, 0, 1, 0, 1, 1, 0},
+        {0, 0, 0, 1, 0, 1, 1}
+    };
+
+    // Matriz de paridad (H)
+    int parityMatrix[N-K][N] = {
+        {1, 1, 1, 1, 0, 0, 0},
+        {1, 0, 1, 0, 1, 0, 1},
+        {0, 1, 1, 0, 0, 1, 1}
+    };
+
+     // Convertir las matrices a punteros dobles
+    int **genMatrix = (int **)malloc(K * sizeof(int *));
+    for (int i = 0; i < K; ++i) {
+        genMatrix[i] = (int *)malloc(N * sizeof(int));
+        for (int j = 0; j < N; ++j) {
+            genMatrix[i][j] = generatorMatrix[i][j];
+        }
+    }
+
+    int **parityMatrixPtr = (int **)malloc((N - K) * sizeof(int *));
+    for (int i = 0; i < (N - K); ++i) {
+        parityMatrixPtr[i] = (int *)malloc(N * sizeof(int));
+        for (int j = 0; j < N; ++j) {
+            parityMatrixPtr[i][j] = parityMatrix[i][j];
+        }
+    }
 
     // Genera el texto claro
     char *text = "Hola mundo!";
-
     // Cifra el texto claro
-    int **ciphertext = encrypt_hamming(text, generator_matrix, parity_matrix);
-
+    int *ciphertext = encrypt_hamming(text, genMatrix, parityMatrixPtr);
+    printf("Ciphertext: ");
     // Descifra el texto cifrado
-    char *plaintext = decrypt_hamming(ciphertext, generator_matrix, parity_matrix);
+    char *plaintext = decrypt_hamming(ciphertext, genMatrix, parityMatrixPtr);
 
     // Imprime el texto claro descifrado
     printf("%s\n", plaintext);
@@ -159,25 +175,8 @@ int main()
     free(plaintext);
 
     // Libera la memoria asignada a ciphertext
-    for (int i = 0; i < N; i++)
-    {
-        free(ciphertext[i]);
-    }
     free(ciphertext);
 
-    // Libera la memoria asignada a generator_matrix
-    for (int i = 0; i < N; i++)
-    {
-        free(generator_matrix[i]);
-    }
-    free(generator_matrix);
-
-    // Libera la memoria asignada a parity_matrix
-    for (int i = 0; i < N; i++)
-    {
-        free(parity_matrix[i]);
-    }
-    free(parity_matrix);
 
     return 0;
 }
