@@ -22,6 +22,9 @@
         "poly.h": "c",
         "rsa.h": "c",
         "_mingw_mac.h": "c",
-        "stdio.h": "c"
+        "stdio.h": "c",
+        "kem_classic_mceliece.h": "c",
+        "oqs.h": "c",
+        "stdlib.h": "c"
     }
 }
